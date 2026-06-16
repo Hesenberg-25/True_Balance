@@ -1,10 +1,12 @@
-# 💰 TrueBalance
+# TrueBalance
+
+![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54) ![MySQL](https://img.shields.io/badge/mysql-4479A1.svg?style=for-the-badge&logo=mysql&logoColor=white) ![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi) ![JavaScript](https://img.shields.io/badge/javascript-%23323330.svg?style=for-the-badge&logo=javascript&logoColor=%23F7DF1E) ![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white) ![CSS3](https://img.shields.io/badge/css3-%231572B6.svg?style=for-the-badge&logo=css3&logoColor=white) ![NestJS](https://img.shields.io/badge/nestjs-%23E0234E.svg?style=for-the-badge&logo=nestjs&logoColor=white) ![React](https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB) ![TailwindCSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white) ![Radix UI](https://img.shields.io/badge/radix%20ui-161618.svg?style=for-the-badge&logo=radix-ui&logoColor=white)
 
 A full-stack personal finance management application that helps you track expenses, set budgets, and make informed financial decisions with powerful calculators.
 
-## 🎯 Features
+## Features
 
-### 📊 Expense Tracking
+### Expense Tracking
 - **Add Expenses**: Log daily expenses across 7 predefined categories
   - Food
   - Transport
@@ -17,7 +19,7 @@ A full-stack personal finance management application that helps you track expens
 - **Filter by Category**: Get detailed breakdown of spending by category
 - **Edit/Delete Expenses**: Modify or remove incorrect entries
 
-### 💼 Budget Management
+### Budget Management
 - **Set Monthly Budgets**: Define spending limits for each month
 - **Budget vs Actual**: Real-time comparison of actual spending vs budgeted amount
 - **Smart Alerts**: Get notifications when you're:
@@ -26,21 +28,21 @@ A full-stack personal finance management application that helps you track expens
   - Exactly on budget
 - **View All Budgets**: See all your monthly budget allocations
 
-### 🧮 Financial Calculators
+### Financial Calculators
 - **Simple Interest Calculator**: Calculate interest earned on savings
 - **Compound Interest Calculator**: Compute returns with different compounding frequencies
 - **Loan Amortization**: Generate detailed EMI schedules with payment breakdown
 - **Income Tax Calculator**: Calculate tax based on Indian tax brackets with slabs breakdown
 - **SIP Calculator**: Plan Systematic Investment Plan returns
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 - **Frontend**: TypeScript, Next.js, React 19, TailwindCSS, Radix UI
 - **Backend**: Python, FastAPI
 - **Database**: MySQL
 - **UI Components**: Radix UI with custom styling
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 True_Balance/
@@ -49,7 +51,7 @@ True_Balance/
 └── Database/          # MySQL database schemas
 ```
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 - Node.js 18+ (for Frontend)
@@ -95,7 +97,7 @@ True_Balance/
    npm start
    ```
 
-## 📡 API Endpoints
+## API Endpoints
 
 ### Health Check
 - `GET /api/health` - Check API status
@@ -119,7 +121,7 @@ True_Balance/
 - `POST /api/calculator/taxation` - Income tax calculation
 - `POST /api/calculator/sip` - SIP returns calculation
 
-## 📝 Sample API Requests
+## Sample API Requests
 
 ### Add Expense
 ```bash
@@ -144,11 +146,11 @@ curl -X POST http://localhost:8000/api/calculator/compound-interest \
   -F "frequency=4"
 ```
 
-## 🔐 CORS Configuration
+## CORS Configuration
 
 The API is configured with CORS enabled for all origins during development. Update this in production for security.
 
-## 📊 Database Schema
+## Database Schema
 
 ### Expenses Table
 - `id` (INT, AUTO_INCREMENT, PRIMARY KEY)
@@ -165,18 +167,6 @@ The API is configured with CORS enabled for all origins during development. Upda
 - `created_at` (TIMESTAMP)
 - `updated_at` (TIMESTAMP)
 
-## 🤝 Contributing
-
-Feel free to fork this project and submit pull requests for any improvements!
-
-## 📄 License
-
-This project is open source and available under the MIT License.
-
-## 📞 Support
-
-For issues, questions, or suggestions, please open an issue on the GitHub repository.
-
 ---
 
-**Made with ❤️ by Hesenberg-25**
+**Made by Hesenberg-25**
