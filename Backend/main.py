@@ -6,9 +6,9 @@ from mysql.connector import Error
 import math
 import time
 from contextlib import contextmanager
+
 import os
 from dotenv import load_dotenv
-
 app = FastAPI(title="TrueBalance API Backend")
 
 # Enable CORS so your frontend tool can securely connect
