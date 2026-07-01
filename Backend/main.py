@@ -6,6 +6,8 @@ from mysql.connector import Error
 import math
 import time
 from contextlib import contextmanager
+import os
+from dotenv import load_dotenv
 
 app = FastAPI(title="TrueBalance API Backend")
 
@@ -25,11 +27,14 @@ MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", 
 # DATABASE CONFIGURATION
 # ═══════════════════════════════════════════════════════════════
 
+
+load_dotenv()
+
 DB_CONFIG = {
-    "host": "localhost",
-    "user": "Durvesh",      
-    "password": "123456789", 
-    "database": "truebalance_db"
+    "host": os.environ.get("HOST"),
+    "user": os.environ.get("USER"),
+    "password": os.environ.get("PASSWORD"),
+    "database": os.environ.get("DATABASE")
 }
 
 @contextmanager
