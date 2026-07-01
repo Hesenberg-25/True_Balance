@@ -67,13 +67,17 @@ True_Balance/
 ### Backend Setup
 
 1. **Install Dependencies**
+
+  Remember to install all the Required Libraires and Packages for the Backend from the requriment.txt file
    ```bash
    cd Backend
-   pip install fastapi mysql-connector-python python-multipart
+   pip install -r requirements.txt
    ```
 
 2. **Configure Database**
-   - Update `DB_CONFIG` in `Backend/main.py` with your MySQL credentials
+   - You are provided a .env.example file which is used to Connect your MYSQL Database with the Backend
+   - Firstly follow open the .env.example file and fill all the Required Information about you Database(db)
+   - Then change the file name from .env.example to just .env and save the file
    - Ensure MySQL is running
 
 3. **Run Backend**
