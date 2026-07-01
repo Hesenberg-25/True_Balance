@@ -1,14 +1,12 @@
 # TrueBalance: Financial Analytics & Management Engine
 
-![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54) ![MySQL](https://img.shields.io/badge/mysql-4479A1.svg?style=for-the-badge&logo=mysql&logoColor=white) ![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi) ![JavaScript](https://img.shields.io/badge/javascript-%23323330.svg?style=for-the-badge&logo=javascript&logoColor=%23F7DF1E) ![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white) ![CSS3](https://img.shields.io/badge/css3-%231572B6.svg?style=for-the-badge&logo=css3&logoColor=white) ![NestJS](https://img.shields.io/badge/nestjs-%23E0234E.svg?style=for-the-badge&logo=nestjs&logoColor=white) ![React](https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB) ![TailwindCSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white) ![Radix UI](https://img.shields.io/badge/radix%20ui-161618.svg?style=for-the-badge&logo=radix-ui&logoColor=white)
+![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54) ![MySQL](https://img.shields.io/badge/mysql-4479A1.svg?style=for-the-badge&logo=mysql&logoColor=white) ![TypeScript](https://img.shields.io/badge/typescript-007acc.svg?style=for-the-badge&logo=typescript&logoColor=white)
 
-TrueBalance is a full-stack personal finance application engineered to bridge the gap between daily expense tracking and long-term wealth forecasting. It combines a secure relational ledger with a suite of deterministic mathematical planning engines.
+TrueBalance is a full-stack personal finance application engineered to bridge the gap between daily expense tracking and long-term wealth forecasting. It combines a secure relational ledger with a modern frontend to make finance management simple and practical.
 
 - 100% Transaction Ledgering: Safely records every inflow and outflow with zero data loss, using optimized database indexing for instant categorical filtering (Food, Utilities, Education).
-
 - Proactive Budget Guard: Continuously computes aggregate monthly spending against customizable limits, delivering real-time variance metrics to actively prevent overruns.
-
-- Precision Forecasting Matrix: Packed with 50+ integrated calculations providing mathematically exact projections for SIPs, compounding assets, progressive tax slabs, and amortized loan schedules.
+- Precision Forecasting Matrix: Packed with integrated calculations providing mathematically exact projections for SIPs, compounding assets, progressive tax slabs, and amortized loan schedules.
 
 ## Features
 
@@ -50,62 +48,104 @@ TrueBalance is a full-stack personal finance application engineered to bridge th
 
 ## Project Structure
 
-```
+```text
 True_Balance/
 ├── Frontend/          # Next.js React application
 ├── Backend/           # FastAPI Python backend
-└── Database/          # MySQL database schemas
+├── Database/          # MySQL database schema
+├── .env.example       # Environment variable template (copy to Backend/.env)
+└── Makefile           # Local developer convenience commands
 ```
 
 ## Getting Started
 
 ### Prerequisites
-- Node.js 18+ (for Frontend)
-- Python 3.8+ (for Backend)
-- MySQL 8.0+ (for Database)
+- **Node.js 22+** (pinned via `.nvmrc` and `Frontend/package.json` engines)
+- **Python 3.8+**
+- **MySQL 8.0+**
 
-### Backend Setup
+### 1) Clone and install dependencies
 
-1. **Install Dependencies**
+```bash
+git clone https://github.com/Hesenberg-25/True_Balance.git
+cd True_Balance
 
-  Remember to install all the Required Libraires and Packages for the Backend from the requriment.txt file
-   ```bash
-   cd Backend
-   pip install -r requirements.txt
-   ```
+# Backend deps
+cd Backend
+pip install -r requirements.txt
+cd ..
 
-2. **Configure Database**
-   - You are provided a .env.example file which is used to Connect your MYSQL Database with the Backend
-   - Firstly follow open the .env.example file and fill all the Required Information about you Database(db)
-   - Then change the file name from .env.example to just .env and save the file
-   - Ensure MySQL is running
+# Frontend deps
+cd Frontend
+npm install
+cd ..
+```
 
-3. **Run Backend**
-   ```bash
-   cd Backend
-   python main.py
-   ```
-   Backend runs on `http://localhost:8000`
+> Tip: If you use `nvm`, run `nvm use` from repo root first.
 
-### Frontend Setup
+### 2) Configure environment variables (Backend/.env)
 
-1. **Install Dependencies**
-   ```bash
-   cd Frontend
-   npm install
-   ```
+The backend calls `load_dotenv()` from `Backend/main.py`, so place the env file at:
 
-2. **Run Development Server**
-   ```bash
-   npm run dev
-   ```
-   Frontend runs on `http://localhost:3000`
+```text
+Backend/.env
+```
 
-3. **Build for Production**
-   ```bash
-   npm run build
-   npm start
-   ```
+Create it by copying the root template:
+
+```bash
+cp .env.example Backend/.env
+```
+
+Then edit `Backend/.env` values:
+
+```dotenv
+HOST=localhost
+USER=your_mysql_username
+PASSWORD=your_mysql_password
+DATABASE=truebalance
+```
+
+### 3) Create database and bootstrap schema
+
+Create the database and import schema:
+
+```bash
+mysql -u <your_mysql_username> -p -e "CREATE DATABASE IF NOT EXISTS truebalance;"
+mysql -u <your_mysql_username> -p truebalance < Database/truebalance_db.sql
+```
+
+If you choose a different DB name, update `DATABASE` in `Backend/.env` accordingly.
+
+### 4) Run backend
+
+```bash
+cd Backend
+python main.py
+```
+
+Backend runs on `http://localhost:8000`
+
+### 5) Run frontend
+
+```bash
+cd Frontend
+npm run dev
+```
+
+Frontend runs on `http://localhost:3000`
+
+## One-command developer helpers (optional)
+
+Use root `Makefile` commands:
+
+```bash
+make setup          # Installs backend + frontend dependencies
+make setup-env      # Copies .env.example to Backend/.env (if missing)
+make db-bootstrap   # Imports Database/truebalance_db.sql into your DATABASE
+make dev-backend    # Runs backend
+make dev-frontend   # Runs frontend
+```
 
 ## API Endpoints
 
@@ -159,23 +199,6 @@ curl -X POST http://localhost:8000/api/calculator/compound-interest \
 ## CORS Configuration
 
 The API is configured with CORS enabled for all origins during development. Update this in production for security.
-
-## Database Schema
-
-### Expenses Table
-- `id` (INT, AUTO_INCREMENT, PRIMARY KEY)
-- `date` (DATE)
-- `month` (VARCHAR)
-- `category` (VARCHAR)
-- `amount` (DECIMAL)
-- `created_at` (TIMESTAMP)
-
-### Budgets Table
-- `id` (INT, AUTO_INCREMENT, PRIMARY KEY)
-- `month` (VARCHAR, UNIQUE)
-- `budget` (DECIMAL)
-- `created_at` (TIMESTAMP)
-- `updated_at` (TIMESTAMP)
 
 ---
 
