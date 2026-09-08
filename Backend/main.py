@@ -1,8 +1,9 @@
 from fastapi import FastAPI, Form, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import date
-import mysql.connector
-from mysql.connector import Error
+import psycopg2
+from psycopg2 import Error
+from psycopg2.extras import RealDictCursor
 import math
 import time
 from contextlib import contextmanager
@@ -31,10 +32,11 @@ MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", 
 load_dotenv()
 
 DB_CONFIG = {
-    "host": os.environ.get("HOST"),
-    "user": os.environ.get("USER"),
-    "password": os.environ.get("PASSWORD"),
-    "database": os.environ.get("DATABASE")
+    "host": os.environ.get("PGHOST"),
+    "port": os.environ.get("PGPORT", "5432"),
+    "user": os.environ.get("PGUSER"),
+    "password": os.environ.get("PGPASSWORD"),
+    "dbname": os.environ.get("PGDATABASE"),
 }
 
 @contextmanager
@@ -42,13 +44,14 @@ def get_db_connection():
     """Context manager for database connections"""
     connection = None
     try:
-        connection = mysql.connector.connect(**DB_CONFIG)
+        database_url = os.environ.get("DATABASE_URL")
+        connection = psycopg2.connect(database_url) if database_url else psycopg2.connect(**DB_CONFIG)
         yield connection
     except Error as e:
         print(f"Database error: {e}")
         raise HTTPException(status_code=500, detail="Database connection failed")
     finally:
-        if connection and connection.is_connected():
+        if connection:
             connection.close()
 
 def init_database():
@@ -60,7 +63,7 @@ def init_database():
             # Create Expenses table
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS expenses (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    id SERIAL PRIMARY KEY,
                     date DATE NOT NULL,
                     month VARCHAR(10) NOT NULL,
                     category VARCHAR(50) NOT NULL,
@@ -72,7 +75,7 @@ def init_database():
             # Create Budget table
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS budgets (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    id SERIAL PRIMARY KEY,
                     month VARCHAR(10) NOT NULL UNIQUE,
                     budget DECIMAL(10, 2) NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -98,14 +101,14 @@ async def health_check():
     return {"status": "ok", "message": "TrueBalance API is running"}
 
 # ═══════════════════════════════════════════════════════════════
-# 1. EXPENSE TRACKER MODULE (MySQL Version)
+# 1. EXPENSE TRACKER MODULE
 # ═══════════════════════════════════════════════════════════════
 
 def get_monthly_expense_logic(month_name: str) -> float:
-    """Get total expenses for a specific month from MySQL"""
+    """Get total expenses for a specific month"""
     try:
         with get_db_connection() as conn:
-            cursor = conn.cursor(dictionary=True)
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
             cursor.execute(
                 "SELECT SUM(amount) as total FROM expenses WHERE month = %s",
                 (month_name,)
@@ -118,7 +121,7 @@ def get_monthly_expense_logic(month_name: str) -> float:
 
 @app.post("/api/expenses")
 async def add_expense_endpoint(category_name: str = Form(...), amount: float = Form(...)):
-    """Add expense to MySQL database"""
+    """Add expense to the database"""
     if category_name not in CATEGORIES:
         raise HTTPException(status_code=400, detail=f"Invalid category. Must be one of {CATEGORIES}")
     
@@ -150,10 +153,10 @@ async def add_expense_endpoint(category_name: str = Form(...), amount: float = F
 
 @app.get("/api/expenses")
 async def get_all_expenses():
-    """Retrieve all expenses from MySQL"""
+    """Retrieve all expenses"""
     try:
         with get_db_connection() as conn:
-            cursor = conn.cursor(dictionary=True)
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
             cursor.execute("SELECT id, date, month, category, amount FROM expenses ORDER BY date DESC")
             expenses = cursor.fetchall()
             
@@ -168,13 +171,13 @@ async def get_all_expenses():
 
 @app.get("/api/expenses/category/{cat_name}")
 async def see_desired_expense_endpoint(cat_name: str):
-    """Get expenses for a specific category from MySQL"""
+    """Get expenses for a specific category"""
     if cat_name not in CATEGORIES:
         raise HTTPException(status_code=400, detail="Category not found")
     
     try:
         with get_db_connection() as conn:
-            cursor = conn.cursor(dictionary=True)
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
             cursor.execute(
                 "SELECT id, date, month, category, amount FROM expenses WHERE category = %s ORDER BY date DESC",
                 (cat_name,)
@@ -199,7 +202,7 @@ async def see_desired_expense_endpoint(cat_name: str):
 
 @app.delete("/api/expenses/{expense_id}")
 async def delete_expense_endpoint(expense_id: int):
-    """Delete an expense from MySQL"""
+    """Delete an expense"""
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
@@ -218,7 +221,7 @@ async def delete_expense_endpoint(expense_id: int):
 
 @app.put("/api/expenses/{expense_id}")
 async def update_expense_endpoint(expense_id: int, category_name: str = Form(...), amount: float = Form(...)):
-    """Update an expense in MySQL"""
+    """Update an expense"""
     if category_name not in CATEGORIES:
         raise HTTPException(status_code=400, detail=f"Invalid category. Must be one of {CATEGORIES}")
     
@@ -248,12 +251,12 @@ async def update_expense_endpoint(expense_id: int, category_name: str = Form(...
 
 
 # ═══════════════════════════════════════════════════════════════
-# 2. BUDGET TRACKER MODULE (MySQL Version)
+# 2. BUDGET TRACKER MODULE
 # ═══════════════════════════════════════════════════════════════
 
 @app.post("/api/budgets")
 async def set_budget_endpoint(month_idx: int = Form(...), budget: float = Form(...)):
-    """Set or update budget in MySQL"""
+    """Set or update a budget"""
     if month_idx < 1 or month_idx > 12:
         raise HTTPException(status_code=400, detail="Month index must be between 1 and 12")
     
@@ -291,10 +294,10 @@ async def set_budget_endpoint(month_idx: int = Form(...), budget: float = Form(.
 
 @app.get("/api/budgets")
 async def get_all_budgets():
-    """Get all budgets from MySQL"""
+    """Get all budgets"""
     try:
         with get_db_connection() as conn:
-            cursor = conn.cursor(dictionary=True)
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
             cursor.execute("SELECT month, budget FROM budgets ORDER BY month")
             budgets = cursor.fetchall()
             
@@ -307,7 +310,7 @@ async def get_all_budgets():
 
 @app.get("/api/budgets/check/{month_name}")
 async def check_budget_endpoint(month_name: str):
-    """Check budget vs actual expenses from MySQL"""
+    """Check budget vs actual expenses"""
     if month_name not in MONTHS:
         raise HTTPException(status_code=400, detail="Invalid month name acronym")
     
@@ -317,7 +320,7 @@ async def check_budget_endpoint(month_name: str):
         
         # Get budget
         with get_db_connection() as conn:
-            cursor = conn.cursor(dictionary=True)
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
             cursor.execute("SELECT budget FROM budgets WHERE month = %s", (month_name,))
             result = cursor.fetchone()
             setted_budget = float(result['budget']) if result else 0.0

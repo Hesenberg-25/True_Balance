@@ -1,3 +1,12 @@
+---
+title: TrueBalance API
+emoji: money_with_wings
+colorFrom: green
+colorTo: blue
+sdk: docker
+app_port: 7860
+---
+
 # TrueBalance: Financial Analytics & Management Engine
 
 ![Markdown](https://img.shields.io/badge/markdown-%23000000.svg?style=for-the-badge&logo=markdown&logoColor=white) ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54) ![CSS3](https://img.shields.io/badge/css3-%231572B6.svg?style=for-the-badge&logo=css3&logoColor=white) ![TypeScript](https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white) ![Vercel](https://img.shields.io/badge/vercel-%23000000.svg?style=for-the-badge&logo=vercel&logoColor=white) ![FastAPI](https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi) ![NodeJS](https://img.shields.io/badge/node.js-6DA55F?style=for-the-badge&logo=node.js&logoColor=white) ![Radix UI](https://img.shields.io/badge/radix%20ui-161618.svg?style=for-the-badge&logo=radix-ui&logoColor=white) ![TailwindCSS](https://img.shields.io/badge/tailwindcss-%2338B2AC.svg?style=for-the-badge&logo=tailwind-css&logoColor=white) ![MySQL](https://img.shields.io/badge/mysql-4479A1.svg?style=for-the-badge&logo=mysql&logoColor=white) ![GitHub](https://img.shields.io/badge/github-%23121011.svg?style=for-the-badge&logo=github&logoColor=white)
@@ -53,7 +62,7 @@ True_Balance/
 ├── Frontend/          # Next.js React application
 ├── Backend/           # FastAPI Python backend
 ├── Database/          # MySQL database schema
-├── .env.example       # Environment variable template (copy to Backend/.env)
+├── .env.example       # Environment variable template
 └── Makefile           # Local developer convenience commands
 ```
 
@@ -91,31 +100,21 @@ The backend calls `load_dotenv()` from `Backend/main.py`, so place the env file 
 Backend/.env
 ```
 
-Create it by copying the root template:
+Create it from the root template:
 
 ```bash
 cp .env.example Backend/.env
 ```
 
-Then edit `Backend/.env` values:
+Then edit `Backend/.env` with your PostgreSQL connection URL:
 
 ```dotenv
-HOST=localhost
-USER=your_mysql_username
-PASSWORD=your_mysql_password
-DATABASE=truebalance
+DATABASE_URL=postgresql://username:password@host:5432/database
 ```
 
-### 3) Create database and bootstrap schema
+### 3) Create database
 
-Create the database and import schema:
-
-```bash
-mysql -u <your_mysql_username> -p -e "CREATE DATABASE IF NOT EXISTS truebalance;"
-mysql -u <your_mysql_username> -p truebalance < Database/truebalance_db.sql
-```
-
-If you choose a different DB name, update `DATABASE` in `Backend/.env` accordingly.
+Create a free PostgreSQL database with Neon and copy its pooled connection string into `DATABASE_URL`. The API creates its required tables on startup.
 
 ### 4) Run backend
 
