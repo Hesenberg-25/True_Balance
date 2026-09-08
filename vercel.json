@@ -1,0 +1,5 @@
+{
+  "buildCommand": "cd Frontend && npm run build",
+  "installCommand": "cd Frontend && npm install",
+  "framework": "nextjs"
+}
