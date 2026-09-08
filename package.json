@@ -1,0 +1,7 @@
+{
+  "name": "true-balance-deployment",
+  "private": true,
+  "dependencies": {
+    "next": "16.2.6"
+  }
+}
