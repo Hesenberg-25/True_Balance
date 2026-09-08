@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: truebalance-api
+    runtime: python
+    rootDir: Backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: HOST
+        sync: false
+      - key: USER
+        sync: false
+      - key: PASSWORD
+        sync: false
+      - key: DATABASE
+        sync: false

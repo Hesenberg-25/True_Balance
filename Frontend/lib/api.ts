@@ -79,7 +79,21 @@ export async function addExpense(category: Category, amount: number) {
 export async function getAllExpenses(): Promise<Expense[]> {
   const res = await fetch(`${API_BASE_URL}/api/expenses`);
   if (!res.ok) throw new Error('Failed to fetch expenses');
-  return res.json();
+  const expenses = await res.json();
+
+  return expenses.map((expense: {
+    id: number;
+    date: string;
+    month: string;
+    category: string;
+    amount: number;
+  }) => ({
+    Id: String(expense.id),
+    Date: expense.date,
+    Month: expense.month,
+    Category: expense.category,
+    Amount: Number(expense.amount),
+  }));
 }
 
 export async function getExpensesByCategory(category: Category) {
