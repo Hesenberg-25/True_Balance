@@ -43,7 +43,7 @@ export function Sidebar() {
           >
             <Wallet className="w-5 h-5 text-primary-foreground" />
           </motion.div>
-          <span className="font-semibold text-lg">TrueBalance</span>
+          <span className="font-semibold text-lg text-accent">TrueBalance</span>
         </Link>
         <motion.button
           whileTap={{ scale: 0.9 }}
@@ -112,7 +112,7 @@ export function Sidebar() {
           >
             <Wallet className="w-5 h-5 text-primary-foreground" />
           </motion.div>
-          <span className="font-semibold text-xl">TrueBalance</span>
+          <span className="font-semibold text-xl text-accent">TrueBalance</span>
         </motion.div>
 
         {/* Navigation */}
@@ -164,7 +164,7 @@ export function Sidebar() {
           className="absolute bottom-0 left-0 right-0 p-4 border-t border-sidebar-border"
         >
           <p className="text-xs text-muted-foreground text-center">
-            TrueBalance v1.0
+            <span className="text-accent">TrueBalance</span>
           </p>
         </motion.div>
       </aside>
