@@ -134,6 +134,20 @@ npm run dev
 
 Frontend runs on `http://localhost:3000`
 
+## Free deployment
+
+The recommended free setup is Vercel for the Next.js frontend, Render for the FastAPI backend, and Neon for PostgreSQL.
+
+1. Push the repository to GitHub.
+2. Create a Neon Free project and copy its pooled PostgreSQL connection string.
+3. In Render, create a Blueprint from the repository. The included `render.yaml` creates the API service. Set `DATABASE_URL` to the Neon connection string.
+4. Deploy the API and copy its public URL, for example `https://truebalance-api.onrender.com`.
+5. In Vercel, import the repository and set the project root directory to `Frontend`.
+6. Add the Vercel environment variable `NEXT_PUBLIC_API_URL` with the Render API URL.
+7. Copy the final Vercel URL into Render's `FRONTEND_URL` environment variable, redeploy the API, and test `/api/health`.
+
+Render Free services sleep after inactivity, so the first request can take about a minute. Neon Free provides persistent PostgreSQL storage; Render's local filesystem is ephemeral.
+
 ## One-command developer helpers (optional)
 
 Use root `Makefile` commands:

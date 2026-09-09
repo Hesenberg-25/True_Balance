@@ -9,13 +9,20 @@ import time
 from contextlib import contextmanager
 
 import os
+import sqlite3
 from dotenv import load_dotenv
 app = FastAPI(title="TrueBalance API Backend")
 
 # Enable CORS so your frontend tool can securely connect
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        origin.strip()
+        for origin in os.environ.get(
+            "FRONTEND_URL", "http://localhost:3000,http://127.0.0.1:3000"
+        ).split(",")
+        if origin.strip()
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -39,15 +46,49 @@ DB_CONFIG = {
     "dbname": os.environ.get("PGDATABASE"),
 }
 
+DB_ERRORS = (Error, sqlite3.Error)
+USE_SQLITE = not (
+    os.environ.get("DATABASE_URL")
+    or any(os.environ.get(name) for name in ("PGHOST", "PGUSER", "PGPASSWORD", "PGDATABASE"))
+)
+
+
+class SQLiteCursor:
+    def __init__(self, cursor):
+        self._cursor = cursor
+
+    def execute(self, query, parameters=()):
+        return self._cursor.execute(query.replace("%s", "?"), parameters)
+
+    def __getattr__(self, name):
+        return getattr(self._cursor, name)
+
+
+class SQLiteConnection:
+    def __init__(self, database_path):
+        self._connection = sqlite3.connect(database_path, check_same_thread=False)
+        self._connection.row_factory = lambda cursor, row: {
+            column[0]: row[index] for index, column in enumerate(cursor.description)
+        }
+
+    def cursor(self, cursor_factory=None):
+        return SQLiteCursor(self._connection.cursor())
+
+    def __getattr__(self, name):
+        return getattr(self._connection, name)
+
 @contextmanager
 def get_db_connection():
     """Context manager for database connections"""
     connection = None
     try:
         database_url = os.environ.get("DATABASE_URL")
-        connection = psycopg2.connect(database_url) if database_url else psycopg2.connect(**DB_CONFIG)
+        if USE_SQLITE:
+            connection = SQLiteConnection(os.environ.get("SQLITE_DATABASE", "truebalance.db"))
+        else:
+            connection = psycopg2.connect(database_url) if database_url else psycopg2.connect(**DB_CONFIG)
         yield connection
-    except Error as e:
+    except DB_ERRORS as e:
         print(f"Database error: {e}")
         raise HTTPException(status_code=500, detail="Database connection failed")
     finally:
@@ -60,10 +101,10 @@ def init_database():
         with get_db_connection() as conn:
             cursor = conn.cursor()
             
-            # Create Expenses table
-            cursor.execute("""
+            expense_id_definition = "INTEGER PRIMARY KEY AUTOINCREMENT" if USE_SQLITE else "SERIAL PRIMARY KEY"
+            cursor.execute(f"""
                 CREATE TABLE IF NOT EXISTS expenses (
-                    id SERIAL PRIMARY KEY,
+                    id {expense_id_definition},
                     date DATE NOT NULL,
                     month VARCHAR(10) NOT NULL,
                     category VARCHAR(50) NOT NULL,
@@ -72,10 +113,10 @@ def init_database():
                 )
             """)
             
-            # Create Budget table
-            cursor.execute("""
+            budget_id_definition = "INTEGER PRIMARY KEY AUTOINCREMENT" if USE_SQLITE else "SERIAL PRIMARY KEY"
+            cursor.execute(f"""
                 CREATE TABLE IF NOT EXISTS budgets (
-                    id SERIAL PRIMARY KEY,
+                    id {budget_id_definition},
                     month VARCHAR(10) NOT NULL UNIQUE,
                     budget DECIMAL(10, 2) NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -85,7 +126,7 @@ def init_database():
             
             conn.commit()
             print("Database tables initialized successfully!")
-    except Error as e:
+    except DB_ERRORS as e:
         print(f"Error initializing database: {e}")
 
 # Initialize database on startup
@@ -115,7 +156,7 @@ def get_monthly_expense_logic(month_name: str) -> float:
             )
             result = cursor.fetchone()
             return float(result['total']) if result['total'] else 0.0
-    except Error as e:
+    except DB_ERRORS as e:
         print(f"Error fetching monthly expenses: {e}")
         return 0.0
 
@@ -148,7 +189,7 @@ async def add_expense_endpoint(category_name: str = Form(...), amount: float = F
                     "amount": amount
                 }
             }
-    except Error as e:
+    except DB_ERRORS as e:
         raise HTTPException(status_code=500, detail=f"Error adding expense: {str(e)}")
 
 @app.get("/api/expenses")
@@ -166,7 +207,7 @@ async def get_all_expenses():
                 expense['amount'] = float(expense['amount'])
             
             return expenses
-    except Error as e:
+    except DB_ERRORS as e:
         raise HTTPException(status_code=500, detail=f"Error fetching expenses: {str(e)}")
 
 @app.get("/api/expenses/category/{cat_name}")
@@ -197,7 +238,7 @@ async def see_desired_expense_endpoint(cat_name: str):
                 "total_spent": total_category, 
                 "records": records
             }
-    except Error as e:
+    except DB_ERRORS as e:
         raise HTTPException(status_code=500, detail=f"Error fetching category expenses: {str(e)}")
 
 @app.delete("/api/expenses/{expense_id}")
@@ -216,7 +257,7 @@ async def delete_expense_endpoint(expense_id: int):
                 "status": "success",
                 "message": f"Expense with ID {expense_id} deleted successfully"
             }
-    except Error as e:
+    except DB_ERRORS as e:
         raise HTTPException(status_code=500, detail=f"Error deleting expense: {str(e)}")
 
 @app.put("/api/expenses/{expense_id}")
@@ -246,7 +287,7 @@ async def update_expense_endpoint(expense_id: int, category_name: str = Form(...
                     "amount": amount
                 }
             }
-    except Error as e:
+    except DB_ERRORS as e:
         raise HTTPException(status_code=500, detail=f"Error updating expense: {str(e)}")
 
 
@@ -289,7 +330,7 @@ async def set_budget_endpoint(month_idx: int = Form(...), budget: float = Form(.
                 "status": "success",
                 "message": message
             }
-    except Error as e:
+    except DB_ERRORS as e:
         raise HTTPException(status_code=500, detail=f"Error setting budget: {str(e)}")
 
 @app.get("/api/budgets")
@@ -305,7 +346,7 @@ async def get_all_budgets():
                 budget['budget'] = float(budget['budget'])
             
             return budgets
-    except Error as e:
+    except DB_ERRORS as e:
         raise HTTPException(status_code=500, detail=f"Error fetching budgets: {str(e)}")
 
 @app.get("/api/budgets/check/{month_name}")
@@ -345,7 +386,7 @@ async def check_budget_endpoint(month_name: str):
             "status_code": status,
             "message": msg
         }
-    except Error as e:
+    except DB_ERRORS as e:
         raise HTTPException(status_code=500, detail=f"Error checking budget: {str(e)}")
 
 
@@ -456,3 +497,9 @@ async def sip_api(principal_monthly: float = Form(...), annual_rate: float = For
         "maturity_value": round(maturity_amount, 2),
         "wealth_gained": round(profit_gained, 2)
     }
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run(app, host="127.0.0.1", port=int(os.environ.get("PORT", "8000")))
