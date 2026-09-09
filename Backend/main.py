@@ -10,6 +10,7 @@ from contextlib import contextmanager
 
 import os
 import sqlite3
+from pathlib import Path
 from dotenv import load_dotenv
 app = FastAPI(title="TrueBalance API Backend")
 
@@ -84,7 +85,11 @@ def get_db_connection():
     try:
         database_url = os.environ.get("DATABASE_URL")
         if USE_SQLITE:
-            connection = SQLiteConnection(os.environ.get("SQLITE_DATABASE", "truebalance.db"))
+            database_path = os.environ.get(
+                "SQLITE_DATABASE",
+                str(Path(__file__).resolve().parent.parent / "truebalance.db"),
+            )
+            connection = SQLiteConnection(database_path)
         else:
             connection = psycopg2.connect(database_url) if database_url else psycopg2.connect(**DB_CONFIG)
         yield connection

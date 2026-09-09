@@ -3,3 +3,5 @@
 __pycache__/
 *.py[cod]
 Frontend/tsconfig.tsbuildinfo
+truebalance.db
+Backend/truebalance.db
