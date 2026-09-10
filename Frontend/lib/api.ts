@@ -98,6 +98,14 @@ export async function getAllExpenses(): Promise<Expense[]> {
   }));
 }
 
+export async function deleteExpense(expenseId: string) {
+  const res = await fetch(`${API_BASE_URL}/api/expenses/${expenseId}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) throw new Error('Failed to delete expense');
+  return res.json();
+}
+
 export async function getExpensesByCategory(category: Category) {
   const res = await fetch(`${API_BASE_URL}/api/expenses/category/${category}`);
   if (!res.ok) throw new Error('Failed to fetch category expenses');

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Filter, Receipt, X } from "lucide-react";
+import { Plus, Filter, Receipt, X, Trash2 } from "lucide-react";
 import {
   PieChart,
   Pie,
@@ -12,6 +12,7 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import {
   addExpense,
+  deleteExpense,
   getAllExpenses,
   CATEGORIES,
   type Expense,
@@ -75,6 +76,7 @@ export function ExpenseTracker() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>("All");
   
@@ -112,6 +114,24 @@ export function ExpenseTracker() {
       console.error("Failed to add expense:", error);
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleDelete(expense: Expense) {
+    if (!window.confirm(`Delete this ${expense.Category} expense of ₹${expense.Amount.toLocaleString()}?`)) {
+      return;
+    }
+
+    setDeletingId(expense.Id);
+    try {
+      await deleteExpense(expense.Id);
+      setExpenses((currentExpenses) =>
+        currentExpenses.filter((currentExpense) => currentExpense.Id !== expense.Id),
+      );
+    } catch (error) {
+      console.error("Failed to delete expense:", error);
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -455,7 +475,21 @@ export function ExpenseTracker() {
                           </p>
                         </div>
                       </div>
-                      <p className="font-semibold">₹{expense.Amount.toLocaleString()}</p>
+                      <div className="flex items-center gap-3">
+                        <p className="font-semibold">₹{expense.Amount.toLocaleString()}</p>
+                        <motion.button
+                          type="button"
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          onClick={() => handleDelete(expense)}
+                          disabled={deletingId === expense.Id}
+                          aria-label={`Delete ${expense.Category} expense`}
+                          title="Delete expense"
+                          className="p-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg transition-colors disabled:opacity-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </motion.button>
+                      </div>
                     </motion.div>
                   ))}
               </AnimatePresence>
