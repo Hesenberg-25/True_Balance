@@ -153,11 +153,20 @@ def init_database():
 
             for table in ("expenses", "budgets"):
                 try:
+                    cursor.execute("SAVEPOINT add_user_id_column")
                     cursor.execute(f"ALTER TABLE {table} ADD COLUMN user_id INTEGER")
+                    cursor.execute("RELEASE SAVEPOINT add_user_id_column")
                 except DB_ERRORS:
-                    pass
+                    cursor.execute("ROLLBACK TO SAVEPOINT add_user_id_column")
+                    cursor.execute("RELEASE SAVEPOINT add_user_id_column")
             if not USE_SQLITE:
-                cursor.execute("ALTER TABLE budgets DROP CONSTRAINT IF EXISTS budgets_month_key")
+                cursor.execute("SAVEPOINT drop_budget_constraint")
+                try:
+                    cursor.execute("ALTER TABLE budgets DROP CONSTRAINT IF EXISTS budgets_month_key")
+                    cursor.execute("RELEASE SAVEPOINT drop_budget_constraint")
+                except DB_ERRORS:
+                    cursor.execute("ROLLBACK TO SAVEPOINT drop_budget_constraint")
+                    cursor.execute("RELEASE SAVEPOINT drop_budget_constraint")
             
             conn.commit()
             print("Database tables initialized successfully!")
