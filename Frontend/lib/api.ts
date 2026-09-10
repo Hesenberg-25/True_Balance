@@ -8,6 +8,40 @@ export const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "
 export type Category = typeof CATEGORIES[number];
 export type Month = typeof MONTHS[number];
 
+async function apiFetch(input: RequestInfo | URL, init?: RequestInit) {
+  return fetch(input, { ...init, credentials: 'include' });
+}
+
+export async function getCurrentUser(): Promise<{ email: string }> {
+  const res = await apiFetch(`${API_BASE_URL}/api/auth/me`);
+  if (!res.ok) throw new Error('Not authenticated');
+  return res.json();
+}
+
+export async function login(email: string, password: string, remember: boolean) {
+  const formData = new FormData();
+  formData.append('email', email);
+  formData.append('password', password);
+  formData.append('remember', String(remember));
+  const res = await apiFetch(`${API_BASE_URL}/api/auth/login`, { method: 'POST', body: formData });
+  if (!res.ok) throw new Error((await res.json()).detail || 'Unable to sign in');
+  return res.json();
+}
+
+export async function signup(email: string, password: string, remember: boolean) {
+  const formData = new FormData();
+  formData.append('email', email);
+  formData.append('password', password);
+  formData.append('remember', String(remember));
+  const res = await apiFetch(`${API_BASE_URL}/api/auth/signup`, { method: 'POST', body: formData });
+  if (!res.ok) throw new Error((await res.json()).detail || 'Unable to create account');
+  return res.json();
+}
+
+export async function logout() {
+  await apiFetch(`${API_BASE_URL}/api/auth/logout`, { method: 'POST' });
+}
+
 export interface Expense {
   Date: string;
   Month: string;
@@ -70,7 +104,7 @@ export async function addExpense(category: Category, amount: number) {
   formData.append('category_name', category);
   formData.append('amount', amount.toString());
   
-  const res = await fetch(`${API_BASE_URL}/api/expenses`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/expenses`, {
     method: 'POST',
     body: formData,
   });
@@ -79,7 +113,7 @@ export async function addExpense(category: Category, amount: number) {
 }
 
 export async function getAllExpenses(): Promise<Expense[]> {
-  const res = await fetch(`${API_BASE_URL}/api/expenses`);
+  const res = await apiFetch(`${API_BASE_URL}/api/expenses`);
   if (!res.ok) throw new Error('Failed to fetch expenses');
   const expenses = await res.json();
 
@@ -99,7 +133,7 @@ export async function getAllExpenses(): Promise<Expense[]> {
 }
 
 export async function deleteExpense(expenseId: string) {
-  const res = await fetch(`${API_BASE_URL}/api/expenses/${expenseId}`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/expenses/${expenseId}`, {
     method: 'DELETE',
   });
   if (!res.ok) throw new Error('Failed to delete expense');
@@ -107,7 +141,7 @@ export async function deleteExpense(expenseId: string) {
 }
 
 export async function getExpensesByCategory(category: Category) {
-  const res = await fetch(`${API_BASE_URL}/api/expenses/category/${category}`);
+  const res = await apiFetch(`${API_BASE_URL}/api/expenses/category/${category}`);
   if (!res.ok) throw new Error('Failed to fetch category expenses');
   return res.json();
 }
@@ -118,7 +152,7 @@ export async function setBudget(monthIndex: number, budget: number) {
   formData.append('month_idx', monthIndex.toString());
   formData.append('budget', budget.toString());
   
-  const res = await fetch(`${API_BASE_URL}/api/budgets`, {
+  const res = await apiFetch(`${API_BASE_URL}/api/budgets`, {
     method: 'POST',
     body: formData,
   });
@@ -127,7 +161,7 @@ export async function setBudget(monthIndex: number, budget: number) {
 }
 
 export async function checkBudget(month: Month): Promise<BudgetCheck> {
-  const res = await fetch(`${API_BASE_URL}/api/budgets/check/${month}`);
+  const res = await apiFetch(`${API_BASE_URL}/api/budgets/check/${month}`);
   if (!res.ok) throw new Error('Failed to check budget');
   return res.json();
 }

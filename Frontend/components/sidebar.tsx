@@ -10,10 +10,12 @@ import {
   Menu,
   X,
   Wallet,
+  LogOut,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { getCurrentUser, logout } from "@/lib/api";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -25,6 +27,16 @@ const navItems = [
 export function Sidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [email, setEmail] = useState("");
+
+  useEffect(() => {
+    getCurrentUser().then((user) => setEmail(user.email)).catch(() => undefined);
+  }, []);
+
+  async function handleLogout() {
+    await logout();
+    window.location.reload();
+  }
 
   return (
     <>
@@ -163,9 +175,11 @@ export function Sidebar() {
           transition={{ delay: 0.5 }}
           className="absolute bottom-0 left-0 right-0 p-4 border-t border-sidebar-border"
         >
-          <p className="text-xs text-muted-foreground text-center">
-            <span className="text-accent">TrueBalance</span>
-          </p>
+          <p className="text-xs text-muted-foreground truncate mb-3 text-center" title={email}>{email}</p>
+          <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm text-sidebar-foreground hover:bg-sidebar-accent rounded-lg">
+            <LogOut className="w-4 h-4" />
+            Sign out
+          </button>
         </motion.div>
       </aside>
     </>

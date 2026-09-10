@@ -4,11 +4,15 @@
 -- Compatible with MySQL 8.0+
 -- ═══════════════════════════════════════════════════════════════
 
--- 1. CREATE DATABASE
--- ─────────────────────────────────────────────────────────────
+
+-- User accounts. Passwords are stored as salted PBKDF2 hashes by the API.
+CREATE TABLE IF NOT EXISTS users (
+    id            INT AUTO_INCREMENT PRIMARY KEY,
+    email         VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 CREATE DATABASE IF NOT EXISTS truebalance_db
-    CHARACTER SET utf8mb4
-    COLLATE utf8mb4_unicode_ci;
 
 USE truebalance_db;
 
@@ -16,31 +20,43 @@ USE truebalance_db;
 -- 2. CREATE TABLES
 -- ═══════════════════════════════════════════════════════════════
 
+-- User accounts
+CREATE TABLE IF NOT EXISTS users (
+    id            INT AUTO_INCREMENT PRIMARY KEY,
+    email         VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Expenses Table
--- ─────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS expenses (
     id           INT AUTO_INCREMENT PRIMARY KEY,
+    user_id      INT            NULL,
     date         DATE           NOT NULL,
     month        VARCHAR(10)    NOT NULL,
     category     VARCHAR(50)    NOT NULL,
     amount       DECIMAL(10, 2) NOT NULL CHECK (amount > 0),
     created_at   TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
 
-    INDEX idx_month    (month),
     INDEX idx_category (category),
-    INDEX idx_date     (date)
+    INDEX idx_date     (date),
+    INDEX idx_expenses_user (user_id),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- Budgets Table
 -- ─────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS budgets (
     id           INT AUTO_INCREMENT PRIMARY KEY,
-    month        VARCHAR(10)    NOT NULL UNIQUE,
+    user_id      INT            NULL,
+    month        VARCHAR(10)    NOT NULL,
     budget       DECIMAL(10, 2) NOT NULL CHECK (budget > 0),
     created_at   TIMESTAMP      DEFAULT CURRENT_TIMESTAMP,
     updated_at   TIMESTAMP      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
-    INDEX idx_month (month)
+    INDEX idx_month (month),
+    UNIQUE KEY idx_user_month (user_id, month),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- ═══════════════════════════════════════════════════════════════
