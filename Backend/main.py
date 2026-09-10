@@ -237,7 +237,7 @@ def set_session_cookie(response: Response, user_id: int, remember: bool) -> None
         max_age=SESSION_MAX_AGE if remember else 60 * 60 * 8,
         httponly=True,
         secure=not USE_SQLITE,
-        samesite="lax",
+        samesite="none" if not USE_SQLITE else "lax",
     )
 
 
