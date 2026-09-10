@@ -11,11 +11,15 @@ import {
   X,
   Wallet,
   LogOut,
+  Monitor,
+  Moon,
+  Sun,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { getCurrentUser, logout } from "@/lib/api";
+import { useTheme } from "next-themes";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -28,6 +32,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [email, setEmail] = useState("");
+  const { theme, setTheme } = useTheme();
 
   useEffect(() => {
     getCurrentUser().then((user) => setEmail(user.email)).catch(() => undefined);
@@ -176,6 +181,30 @@ export function Sidebar() {
           className="absolute bottom-0 left-0 right-0 p-4 border-t border-sidebar-border"
         >
           <p className="text-xs text-muted-foreground truncate mb-3 text-center" title={email}>{email}</p>
+          <div className="grid grid-cols-3 gap-1 mb-3 rounded-lg bg-sidebar-accent/60 p-1" aria-label="Theme preference">
+            {[
+              { value: "light", label: "Light", icon: Sun },
+              { value: "dark", label: "Dark", icon: Moon },
+              { value: "system", label: "System", icon: Monitor },
+            ].map(({ value, label, icon: Icon }) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setTheme(value)}
+                aria-label={`${label} theme`}
+                aria-pressed={theme === value}
+                className={cn(
+                  "flex items-center justify-center gap-1 rounded-md py-2 text-[11px] transition-colors",
+                  theme === value
+                    ? "bg-sidebar-primary text-sidebar-primary-foreground"
+                    : "text-sidebar-foreground/75 hover:bg-sidebar-accent hover:text-sidebar-foreground",
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                <span>{label}</span>
+              </button>
+            ))}
+          </div>
           <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm text-sidebar-foreground hover:bg-sidebar-accent rounded-lg">
             <LogOut className="w-4 h-4" />
             Sign out
