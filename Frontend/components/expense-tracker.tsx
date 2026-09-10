@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Filter, Receipt, X, Trash2 } from "lucide-react";
+import { Plus, Filter, Receipt, X, Trash2, AlertTriangle } from "lucide-react";
 import {
   PieChart,
   Pie,
@@ -77,6 +77,7 @@ export function ExpenseTracker() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Expense | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>("All");
   
@@ -117,11 +118,11 @@ export function ExpenseTracker() {
     }
   }
 
-  async function handleDelete(expense: Expense) {
-    if (!window.confirm(`Delete this ${expense.Category} expense of ₹${expense.Amount.toLocaleString()}?`)) {
-      return;
-    }
+  async function confirmDelete() {
+    if (!pendingDelete) return;
 
+    const expense = pendingDelete;
+    setPendingDelete(null);
     setDeletingId(expense.Id);
     try {
       await deleteExpense(expense.Id);
@@ -298,6 +299,75 @@ export function ExpenseTracker() {
                   </motion.button>
                 </motion.div>
               </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Delete Expense Confirmation */}
+      <AnimatePresence>
+        {pendingDelete && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setPendingDelete(null)}
+          >
+            <motion.div
+              variants={modalVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              onClick={(event) => event.stopPropagation()}
+              className="bg-card rounded-xl border border-border shadow-lg w-full max-w-md p-6"
+            >
+              <div className="flex items-start gap-4">
+                <div className="rounded-full bg-destructive/10 p-3 text-destructive">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <h2 className="text-lg font-semibold">Delete expense?</h2>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        This action cannot be undone.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setPendingDelete(null)}
+                      aria-label="Close delete confirmation"
+                      className="p-1 text-muted-foreground hover:bg-muted rounded-lg transition-colors"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <div className="mt-4 rounded-lg bg-muted/60 px-4 py-3">
+                    <p className="font-medium">{pendingDelete.Category}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {pendingDelete.Date} • ₹{pendingDelete.Amount.toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="flex gap-3 pt-5">
+                    <button
+                      type="button"
+                      onClick={() => setPendingDelete(null)}
+                      className="flex-1 px-4 py-2.5 border border-border rounded-lg font-medium hover:bg-muted transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={confirmDelete}
+                      className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-destructive text-destructive-foreground rounded-lg font-medium hover:bg-destructive/90 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
             </motion.div>
           </motion.div>
         )}
@@ -481,7 +551,7 @@ export function ExpenseTracker() {
                           type="button"
                           whileHover={{ scale: 1.1 }}
                           whileTap={{ scale: 0.9 }}
-                          onClick={() => handleDelete(expense)}
+                          onClick={() => setPendingDelete(expense)}
                           disabled={deletingId === expense.Id}
                           aria-label={`Delete ${expense.Category} expense`}
                           title="Delete expense"
