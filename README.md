@@ -10,6 +10,36 @@ TrueBalance is a full-stack personal finance application engineered to bridge th
 
 ## Features
 
+### Authentication & Security
+- **Unique user accounts**: Each user signs up with an email and password; records are scoped per user so data is isolated.
+- **Password storage**: PBKDF2 (sha256) is used with a 310,000 iteration count and per-user salt; stored as `pbkdf2_sha256$<rounds>$<salt>$<digest>`.
+- **Sessions**: Signed session cookies (HMAC-SHA256) are used for authentication. Session payloads include user_id and expiration.
+- **CORS & Environment**: CORS is permissive in development; production should lock origins. Secrets (SESSION_SECRET, DATABASE_URL) must be provided as environment variables.
+
+When to use
+- Authentication is required whenever a user needs to read or write personal data (expenses, budgets). All expense/budget endpoints depend on authentication.
+
+Where it's implemented
+- Backend: `Backend/main.py` contains auth endpoints:
+  - POST `/api/auth/signup` — create an account and issue session cookie
+  - POST `/api/auth/login` — authenticate and issue session cookie
+  - POST `/api/auth/logout` — delete session cookie
+  - GET  `/api/auth/me` — return current user's email (requires cookie)
+- Frontend: Login/signup UI in `Frontend/app` uses form posts to these endpoints and stores no secrets client-side.
+
+Why this approach
+- Per-user scoping keeps financial data private and ensures a single source of truth.
+- PBKDF2 with a strong salt and iterations defends against offline password cracking.
+- Signed cookies avoid storing session state server-side while still allowing integrity checks; HTTPS and secure cookie flags enforce transport security in production.
+
+Security recommendations
+- Rotate `SESSION_SECRET` regularly and use a secrets manager for production hosts.
+- Serve backend over HTTPS; set `secure=True` for cookies in production.
+- Restrict CORS to the frontend domain(s) when deploying.
+- Consider adding rate limiting on auth endpoints and email verification for signup.
+
+---
+
 ### Expense Tracking
 - **Add Expenses**: Log daily expenses across 7 predefined categories
   - Food
@@ -23,6 +53,24 @@ TrueBalance is a full-stack personal finance application engineered to bridge th
 - **Filter by Category**: Get detailed breakdown of spending by category
 - **Edit/Delete Expenses**: Modify or remove incorrect entries
 
+When to use
+- Record transactions immediately after spending (or when income arrives).
+- Use filters and history when reconciling bank statements or preparing monthly expense breakdowns.
+
+Where it's implemented
+- Backend: `Backend/main.py` endpoints:
+  - POST `/api/expenses` — add an expense
+  - GET `/api/expenses` — list all expenses
+  - GET `/api/expenses/category/{cat_name}` — category scoped list + totals
+  - PUT `/api/expenses/{expense_id}` and DELETE `/api/expenses/{expense_id}` — modify/remove
+- Frontend: UI pages/components in `Frontend/app` and `Frontend/components` call these endpoints and render forms, lists and charts.
+
+Why this approach
+- Server-side ledgering (raw SQL) gives a single source of truth, atomic writes, and the ability to index by user/date/category for fast queries and reliable auditing.
+- Centralizing validation and permission checks on the backend prevents data inconsistencies between clients.
+
+---
+
 ### Budget Management
 - **Set Monthly Budgets**: Define spending limits for each month
 - **Budget vs Actual**: Real-time comparison of actual spending vs budgeted amount
@@ -32,18 +80,46 @@ TrueBalance is a full-stack personal finance application engineered to bridge th
   - Exactly on budget
 - **View All Budgets**: See all your monthly budget allocations
 
+When to use
+- Set or update monthly budgets at the start of a month or when planning finances.
+- Use budget checks mid-month to decide spending adjustments.
+
+Where it's implemented
+- Backend: `Backend/main.py` endpoints:
+  - POST `/api/budgets` — set/update budget
+  - GET `/api/budgets` — list budgets
+  - GET `/api/budgets/check/{month_name}` — returns budget_limit, actual_expense, remaining_balance, status
+- Database: `Database/truebalance_db.sql` contains views like `monthly_summary` for analytics (may need conversion to Postgres).
+- Frontend: Budget UI in `Frontend/app` uses these endpoints to display monthly summaries and trigger alerts.
+
+Why this approach
+- Storing budgets server-side ensures consistency across devices and lets the backend compute aggregates and alerts efficiently.
+- Using DB views or server-side aggregation reduces frontend work and provides performant dashboard queries.
+
+---
+
 ### Financial Calculators
-- **Simple Interest Calculator**: Calculate interest earned on savings
-- **Compound Interest Calculator**: Compute returns with different compounding frequencies
-- **Loan Amortization**: Generate detailed EMI schedules with payment breakdown
-- **Income Tax Calculator**: Calculate tax based on Indian tax brackets with slabs breakdown
-- **SIP Calculator**: Plan Systematic Investment Plan returns
+- **Simple Interest Calculator**n- **Compound Interest Calculator**
+- **Loan Amortization**
+- **Income Tax Calculator (Indian slabs)**
+- **SIP Calculator**
+
+When to use
+- For planning or "what-if" analysis: estimate returns, monthly EMI, or tax due before making financial decisions.
+
+Where it's implemented
+- Backend: Stateless endpoints in `Backend/main.py` under `/api/calculator/*`. They accept form inputs and return computed JSON without DB writes (examples: `/api/calculator/compound-interest`, `/api/calculator/loan-amortization`).
+- Frontend: Calculator UI in `Frontend/app` calls the endpoints and shows results.
+
+Why this approach
+- Centralizing numerical logic on the server enforces a single authoritative implementation, simplifies testing, and makes it easy to change formulas in one place.
+- Stateless endpoints require no DB writes and are cheap to run and cache if needed.
 
 ## Tech Stack
 
 - **Frontend**: TypeScript, Next.js, React 19, TailwindCSS, Radix UI
 - **Backend**: Python, FastAPI
-- **Database**: MySQL
+- **Database**: MySQL (schema provided) — backend supports PostgreSQL (via DATABASE_URL) and has a local SQLite fallback
 - **UI Components**: Radix UI with custom styling
 
 ## Project Structure
@@ -125,19 +201,11 @@ npm run dev
 
 Frontend runs on `http://localhost:3000`
 
-## Free deployment
+## Deployment (short)
 
-The recommended free setup is Vercel for the Next.js frontend, Render for the FastAPI backend, and Neon for PostgreSQL.
+Recommended quick setup: host the Next.js frontend on Vercel (or any static/SSR host) and the FastAPI backend as a small service (Render, Cloud Run, or a Docker host). Use a managed Postgres (Neon, Heroku Postgres, etc.) and set DATABASE_URL for the backend. Keep deployment details minimal here — use the README steps under "Getting Started" to run locally and refer to your chosen provider's docs for production deployment.
 
-1. Push the repository to GitHub.
-2. Create a Neon Free project and copy its pooled PostgreSQL connection string.
-3. In Render, create a Blueprint from the repository. The included `render.yaml` creates the API service. Set `DATABASE_URL` to the Neon connection string.
-4. Deploy the API and copy its public URL, for example `https://truebalance-api.onrender.com`.
-5. In Vercel, import the repository and set the project root directory to `Frontend`.
-6. Add the Vercel environment variable `NEXT_PUBLIC_API_URL` with the Render API URL.
-7. Copy the final Vercel URL into Render's `FRONTEND_URL` environment variable, redeploy the API, and test `/api/health`.
-
-Render Free services sleep after inactivity, so the first request can take about a minute. Neon Free provides persistent PostgreSQL storage; Render's local filesystem is ephemeral.
+Note: Database/truebalance_db.sql is MySQL‑flavored while the backend code uses psycopg2 (Postgres). Pick a production DB (Postgres recommended) and convert the schema or adapt the backend accordingly; the backend has a SQLite fallback for local dev.
 
 ## One-command developer helpers (optional)
 
@@ -148,7 +216,7 @@ make setup          # Installs backend + frontend dependencies
 make setup-env      # Copies .env.example to Backend/.env (if missing)
 make db-bootstrap   # Imports Database/truebalance_db.sql into your DATABASE
 make dev-backend    # Runs backend
-make dev-frontend   # Runs frontend
+make dev-frontend    # Runs frontend
 ```
 
 ## API Endpoints
