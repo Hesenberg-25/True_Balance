@@ -11,14 +11,25 @@ TrueBalance is a full-stack personal finance application engineered to bridge th
 ## Features
 
 ### Authentication & Security
-- **Unique user accounts**: Each user signs up with an email and password; records are scoped per user so data is isolated.
-- **Password storage**: PBKDF2 (sha256) is used with a 310,000 iteration count and per-user salt; stored as `pbkdf2_sha256$<rounds>$<salt>$<digest>`.
-- **Sessions**: Signed session cookies (HMAC-SHA256) are used for authentication. Session payloads include user_id and expiration.
-- **CORS & Environment**: CORS is permissive in development; production should lock origins. Secrets (SESSION_SECRET, DATABASE_URL) must be provided as environment variables.
 
-When to use
-- Authentication is required whenever a user needs to read or write personal data (expenses, budgets). All expense/budget endpoints depend on authentication.
+What it does
+- Each user has an account (email + password). All expenses/budgets are private to that account.
+- Passwords are stored securely (PBKDF2 hash). Login creates a signed session cookie.
 
+Where it lives
+- Backend: Backend/main.py
+  - POST /api/auth/signup, /api/auth/login, /api/auth/logout, GET /api/auth/me
+- Frontend: login/signup forms under Frontend/app
+
+How it works
+1. Sign up → server stores a salted PBKDF2 hash (not the plain password).  
+2. Login → server issues an HMAC‑signed cookie with your user id and expiry.  
+3. Protected endpoints (expenses, budgets) require that cookie.
+
+Quick production checklist
+- Set a strong SESSION_SECRET in your secrets manager.  
+- Serve over HTTPS and set cookies secure=True.  
+- Restrict CORS to your frontend domain.  
 Where it's implemented
 - Backend: `Backend/main.py` contains auth endpoints:
   - POST `/api/auth/signup` — create an account and issue session cookie
