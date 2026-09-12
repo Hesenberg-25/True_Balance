@@ -15,7 +15,7 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: 'TrueBalance | Personal Finance Manager',
+  title: 'TrueBalance',
   description: 'Track expenses, manage budgets, and calculate your financial goals with TrueBalance.',
   generator: 'v0.app',
   icons: {
