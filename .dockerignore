@@ -1,0 +1,26 @@
+# Ignore secrets and local dev artifacts from Docker build context
+
+# Environment files
+.env
+**/.env
+Backend/.env
+
+# OS / editor
+.DS_Store
+.vscode/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Node / Frontend
+node_modules
+Frontend/.next
+
+# Git
+.git
+
+# Database files
+*.db
+truebalance.db
+Backend/truebalance.db

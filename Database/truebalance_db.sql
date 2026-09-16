@@ -1,9 +1,12 @@
 -- ═══════════════════════════════════════════════════════════════
--- TRUEBALANCE DATABASE SETUP SCRIPT
+-- TRUEBALANCE DATABASE SETUP SCRIPT (SANITIZED)
 -- Run this once to set up the full database for TrueBalance API
--- Compatible with MySQL 8.0+
+-- NOTE: This file has been sanitized for public distribution.
+-- Do NOT store passwords or credentials in this file. Create users/credentials
+-- via your database provider (Neon, RDS, PlanetScale, etc.) and set them
+-- using environment variables (DATABASE_URL) or secrets in your deploy platform.
+-- Compatible with MySQL 8.0+ (adjust types for Postgres if you use Postgres)
 -- ═══════════════════════════════════════════════════════════════
-
 
 -- User accounts. Passwords are stored as salted PBKDF2 hashes by the API.
 CREATE TABLE IF NOT EXISTS users (
@@ -12,7 +15,8 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(255) NOT NULL,
     created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-CREATE DATABASE IF NOT EXISTS truebalance_db
+
+CREATE DATABASE IF NOT EXISTS truebalance_db;
 
 USE truebalance_db;
 
@@ -45,7 +49,6 @@ CREATE TABLE IF NOT EXISTS expenses (
 );
 
 -- Budgets Table
--- ─────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS budgets (
     id           INT AUTO_INCREMENT PRIMARY KEY,
     user_id      INT            NULL,
@@ -60,20 +63,15 @@ CREATE TABLE IF NOT EXISTS budgets (
 );
 
 -- ═══════════════════════════════════════════════════════════════
--- 3. CREATE DEDICATED USER (Recommended over using root)
+-- NOTE: User creation / credential setup removed for security.
+-- Do NOT add production credentials (passwords, keys) into repository files.
+-- Create database users and grant privileges using your DB provider or
+-- administrative interface. Example (run as admin on your DB host) —
+--   CREATE USER 'your_user'@'%' IDENTIFIED BY 'strong_password';
+--   GRANT SELECT, INSERT, UPDATE, DELETE ON truebalance_db.* TO 'your_user'@'%';
+-- For managed Postgres providers (Neon, Heroku), create users in the
+-- provider dashboard and use the provided DATABASE_URL in your app env vars.
 -- ═══════════════════════════════════════════════════════════════
--- Replace '123456789' with a strong password before running
-
-CREATE USER IF NOT EXISTS 'Durvesh'@'localhost' IDENTIFIED BY '123456789';
-
-GRANT SELECT, INSERT, UPDATE, DELETE ON truebalance_db.* TO 'Durvesh'@'localhost';
-
--- For production/cloud deployment (e.g. Railway, PlanetScale, AWS RDS)
--- replace 'localhost' with '%' to allow connections from any host:
--- CREATE USER IF NOT EXISTS 'Durvesh'@'%' IDENTIFIED BY '123456789';
--- GRANT SELECT, INSERT, UPDATE, DELETE ON truebalance_db.* TO 'Durvesh'@'%';
-
-FLUSH PRIVILEGES;
 
 -- ═══════════════════════════════════════════════════════════════
 -- 5. USEFUL VIEWS (for analytics / future dashboard features)
@@ -108,7 +106,7 @@ CREATE OR REPLACE VIEW category_monthly_breakdown AS
     ORDER BY month, total_amount DESC;
 
 -- ═══════════════════════════════════════════════════════════════
--- 6. VERIFY SETUP
+-- Verify setup
 -- ═══════════════════════════════════════════════════════════════
 
 SHOW TABLES;
