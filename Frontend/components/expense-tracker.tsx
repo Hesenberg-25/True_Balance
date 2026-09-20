@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Filter, Receipt, X, Trash2, AlertTriangle } from "lucide-react";
+import { Plus, Filter, Receipt, X, Trash2, AlertTriangle, CalendarDays } from "lucide-react";
 import {
   PieChart,
   Pie,
@@ -10,6 +10,8 @@ import {
   Tooltip,
 } from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   addExpense,
   deleteExpense,
@@ -72,6 +74,24 @@ const modalVariants = {
   },
 };
 
+function getToday() {
+  const today = new Date();
+  const offset = today.getTimezoneOffset() * 60000;
+  return new Date(today.getTime() - offset).toISOString().slice(0, 10);
+}
+
+function parseExpenseDate(value: string) {
+  return new Date(`${value}T00:00:00`);
+}
+
+function formatExpenseDate(value: string) {
+  return parseExpenseDate(value).toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 export function ExpenseTracker() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,11 +99,14 @@ export function ExpenseTracker() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Expense | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>("All");
   
   const [formData, setFormData] = useState({
     category: "Food" as Category,
     amount: "",
+    date: getToday(),
+    notes: "",
   });
 
   useEffect(() => {
@@ -107,8 +130,8 @@ export function ExpenseTracker() {
 
     setSubmitting(true);
     try {
-      await addExpense(formData.category, parseFloat(formData.amount));
-      setFormData({ category: "Food", amount: "" });
+      await addExpense(formData.category, parseFloat(formData.amount), formData.date, formData.notes);
+      setFormData({ category: "Food", amount: "", date: getToday(), notes: "" });
       setShowForm(false);
       await fetchExpenses();
     } catch (error) {
@@ -264,11 +287,75 @@ export function ExpenseTracker() {
                     className="w-full px-4 py-2.5 bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring transition-shadow"
                   />
                 </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                >
+                  <label className="block text-sm font-medium mb-2" htmlFor="expense-notes">
+                    Notes <span className="text-muted-foreground font-normal">(optional)</span>
+                  </label>
+                  <textarea
+                    id="expense-notes"
+                    maxLength={500}
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    placeholder="Add a note about this expense"
+                    rows={3}
+                    className="w-full px-4 py-2.5 bg-input border border-border rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-ring transition-shadow"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1.5 text-right">
+                    {formData.notes.length}/500
+                  </p>
+                </motion.div>
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.2 }}
+                >
+                  <label className="block text-sm font-medium mb-2" htmlFor="expense-date">
+                    Date
+                  </label>
+                  <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+                    <PopoverTrigger asChild>
+                      <button
+                        id="expense-date"
+                        type="button"
+                        className="w-full inline-flex items-center gap-3 px-4 py-2.5 bg-input border border-border rounded-lg text-left hover:bg-muted transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
+                      >
+                        <CalendarDays className="w-5 h-5 text-primary" />
+                        <span>{formatExpenseDate(formData.date)}</span>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent align="start" className="w-auto p-0 overflow-hidden">
+                      <Calendar
+                        mode="single"
+                        selected={parseExpenseDate(formData.date)}
+                        onSelect={(selectedDate) => {
+                          if (!selectedDate) return;
+                          const localDate = new Date(
+                            selectedDate.getTime() - selectedDate.getTimezoneOffset() * 60000,
+                          ).toISOString().slice(0, 10);
+                          setFormData({ ...formData, date: localDate });
+                          setDatePickerOpen(false);
+                        }}
+                        disabled={{ after: parseExpenseDate(getToday()) }}
+                        defaultMonth={parseExpenseDate(formData.date)}
+                        captionLayout="dropdown"
+                        fromYear={new Date().getFullYear() - 10}
+                        toYear={new Date().getFullYear()}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <p className="text-xs text-muted-foreground mt-1.5">
+                    Choose today or a previous day.
+                  </p>
+                </motion.div>
                 <motion.div 
                   className="flex gap-3 pt-2"
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
+                  transition={{ delay: 0.4 }}
                 >
                   <motion.button
                     type="button"
@@ -449,34 +536,36 @@ export function ExpenseTracker() {
         >
           <h3 className="font-semibold mb-4">Category Breakdown</h3>
           {categoryData.length > 0 ? (
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={categoryData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={90}
-                    paddingAngle={2}
-                    dataKey="value"
-                    animationBegin={0}
-                    animationDuration={800}
-                  >
-                    {categoryData.map((_, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={COLORS[index % COLORS.length]}
-                      />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value: number) => [`₹${value.toLocaleString()}`, "Amount"]}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
+            <div>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={categoryData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={90}
+                      paddingAngle={2}
+                      dataKey="value"
+                      animationBegin={0}
+                      animationDuration={800}
+                    >
+                      {categoryData.map((_, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={COLORS[index % COLORS.length]}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value: number) => [`₹${value.toLocaleString()}`, "Amount"]}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
               <motion.div 
-                className="flex flex-wrap justify-center gap-3 mt-4"
+                className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 mt-3"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.5 }}
@@ -484,13 +573,13 @@ export function ExpenseTracker() {
                 {categoryData.map((item, index) => (
                   <motion.div 
                     key={item.name} 
-                    className="flex items-center gap-2"
+                    className="flex items-center gap-2 leading-none"
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.6 + index * 0.05 }}
                   >
                     <div
-                      className="w-3 h-3 rounded-full"
+                      className="w-3 h-3 shrink-0 rounded-full"
                       style={{ backgroundColor: COLORS[index % COLORS.length] }}
                     />
                     <span className="text-sm">{item.name}</span>
@@ -543,6 +632,11 @@ export function ExpenseTracker() {
                           <p className="text-xs text-muted-foreground">
                             {expense.Date} • {expense.Month}
                           </p>
+                          {expense.Notes && (
+                            <p className="text-xs text-muted-foreground mt-1 max-w-55 truncate" title={expense.Notes}>
+                              {expense.Notes}
+                            </p>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-3">

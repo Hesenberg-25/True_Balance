@@ -125,6 +125,7 @@ def init_database():
                     month VARCHAR(10) NOT NULL,
                     category VARCHAR(50) NOT NULL,
                     amount DECIMAL(10, 2) NOT NULL,
+                    notes TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
@@ -159,6 +160,14 @@ def init_database():
                 except DB_ERRORS:
                     cursor.execute("ROLLBACK TO SAVEPOINT add_user_id_column")
                     cursor.execute("RELEASE SAVEPOINT add_user_id_column")
+
+            try:
+                cursor.execute("SAVEPOINT add_expense_notes_column")
+                cursor.execute("ALTER TABLE expenses ADD COLUMN notes TEXT")
+                cursor.execute("RELEASE SAVEPOINT add_expense_notes_column")
+            except DB_ERRORS:
+                cursor.execute("ROLLBACK TO SAVEPOINT add_expense_notes_column")
+                cursor.execute("RELEASE SAVEPOINT add_expense_notes_column")
             if not USE_SQLITE:
                 cursor.execute("SAVEPOINT drop_budget_constraint")
                 try:
@@ -318,21 +327,29 @@ def get_monthly_expense_logic(month_name: str, user_id: int) -> float:
         return 0.0
 
 @app.post("/api/expenses")
-async def add_expense_endpoint(category_name: str = Form(...), amount: float = Form(...), user: dict = Depends(get_current_user)):
+async def add_expense_endpoint(category_name: str = Form(...), amount: float = Form(...), expense_date: str = Form(...), notes: str = Form(""), user: dict = Depends(get_current_user)):
     """Add expense to the database"""
     if category_name not in CATEGORIES:
         raise HTTPException(status_code=400, detail=f"Invalid category. Must be one of {CATEGORIES}")
     
-    date_today = date.today()
-    month_today = date_today.month
-    month_string = MONTHS[month_today - 1].capitalize()
+    try:
+        expense_day = date.fromisoformat(expense_date)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Enter a valid expense date")
+    if expense_day > date.today():
+        raise HTTPException(status_code=400, detail="Expense date cannot be in the future")
+    notes = notes.strip() or None
+    if notes and len(notes) > 500:
+        raise HTTPException(status_code=400, detail="Notes must be 500 characters or fewer")
+
+    month_string = MONTHS[expense_day.month - 1].capitalize()
     
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "INSERT INTO expenses (user_id, date, month, category, amount) VALUES (%s, %s, %s, %s, %s)",
-                (user["id"], date_today, month_string, category_name, amount)
+                "INSERT INTO expenses (user_id, date, month, category, amount, notes) VALUES (%s, %s, %s, %s, %s, %s)",
+                (user["id"], expense_day, month_string, category_name, amount, notes)
             )
             conn.commit()
             
@@ -340,7 +357,7 @@ async def add_expense_endpoint(category_name: str = Form(...), amount: float = F
                 "status": "success", 
                 "message": f"Expense Spent on {category_name} : {amount}",
                 "data": {
-                    "date": str(date_today), 
+                    "date": str(expense_day), 
                     "month": month_string, 
                     "category": category_name, 
                     "amount": amount
@@ -355,7 +372,7 @@ async def get_all_expenses(user: dict = Depends(get_current_user)):
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor(cursor_factory=RealDictCursor)
-            cursor.execute("SELECT id, date, month, category, amount FROM expenses WHERE user_id = %s ORDER BY date DESC", (user["id"],))
+            cursor.execute("SELECT id, date, month, category, amount, notes FROM expenses WHERE user_id = %s ORDER BY date DESC", (user["id"],))
             expenses = cursor.fetchall()
             
             # Convert date objects to strings for JSON serialization
@@ -377,7 +394,7 @@ async def see_desired_expense_endpoint(cat_name: str, user: dict = Depends(get_c
         with get_db_connection() as conn:
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             cursor.execute(
-                "SELECT id, date, month, category, amount FROM expenses WHERE category = %s AND user_id = %s ORDER BY date DESC",
+                "SELECT id, date, month, category, amount, notes FROM expenses WHERE category = %s AND user_id = %s ORDER BY date DESC",
                 (cat_name, user["id"])
             )
             records = cursor.fetchall()

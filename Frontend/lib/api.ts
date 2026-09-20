@@ -48,6 +48,7 @@ export interface Expense {
   Category: string;
   Amount: number;
   Id: string;
+  Notes: string;
 }
 
 export interface BudgetCheck {
@@ -99,10 +100,12 @@ export interface SIPResult {
 }
 
 // Expense APIs
-export async function addExpense(category: Category, amount: number) {
+export async function addExpense(category: Category, amount: number, expenseDate: string, notes: string) {
   const formData = new FormData();
   formData.append('category_name', category);
   formData.append('amount', amount.toString());
+  formData.append('expense_date', expenseDate);
+  formData.append('notes', notes);
   
   const res = await apiFetch(`${API_BASE_URL}/api/expenses`, {
     method: 'POST',
@@ -123,12 +126,14 @@ export async function getAllExpenses(): Promise<Expense[]> {
     month: string;
     category: string;
     amount: number;
+    notes: string | null;
   }) => ({
     Id: String(expense.id),
     Date: expense.date,
     Month: expense.month,
     Category: expense.category,
     Amount: Number(expense.amount),
+    Notes: expense.notes || "",
   }));
 }
 
