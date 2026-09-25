@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Filter, Receipt, X, Trash2, AlertTriangle, CalendarDays } from "lucide-react";
+import { Plus, Filter, Receipt, X, Trash2, AlertTriangle, CalendarDays, Calculator } from "lucide-react";
 import {
   PieChart,
   Pie,
@@ -92,6 +92,8 @@ function formatExpenseDate(value: string) {
   });
 }
 
+type CalculatorOperator = "+" | "−" | "×" | "÷" | null;
+
 export function ExpenseTracker() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,6 +103,11 @@ export function ExpenseTracker() {
   const [showForm, setShowForm] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>("All");
+  const [showCalculator, setShowCalculator] = useState(false);
+  const [calculatorDisplay, setCalculatorDisplay] = useState("0");
+  const [calculatorValue, setCalculatorValue] = useState<number | null>(null);
+  const [calculatorOperator, setCalculatorOperator] = useState<CalculatorOperator>(null);
+  const [calculatorWaiting, setCalculatorWaiting] = useState(false);
   
   const [formData, setFormData] = useState({
     category: "Food" as Category,
@@ -108,6 +115,78 @@ export function ExpenseTracker() {
     date: getToday(),
     notes: "",
   });
+
+  function resetCalculator() {
+    setCalculatorDisplay("0");
+    setCalculatorValue(null);
+    setCalculatorOperator(null);
+    setCalculatorWaiting(false);
+  }
+
+  function enterCalculatorDigit(digit: string) {
+    if (calculatorWaiting || calculatorDisplay === "0") {
+      setCalculatorDisplay(digit);
+      setCalculatorWaiting(false);
+      return;
+    }
+    setCalculatorDisplay(`${calculatorDisplay}${digit}`);
+  }
+
+  function enterCalculatorDecimal() {
+    if (calculatorWaiting) {
+      setCalculatorDisplay("0.");
+      setCalculatorWaiting(false);
+    } else if (!calculatorDisplay.includes(".")) {
+      setCalculatorDisplay(`${calculatorDisplay}.`);
+    }
+  }
+
+  function calculateResult(firstValue: number, secondValue: number, operator: CalculatorOperator) {
+    if (operator === "+") return firstValue + secondValue;
+    if (operator === "−") return firstValue - secondValue;
+    if (operator === "×") return firstValue * secondValue;
+    if (operator === "÷") return secondValue === 0 ? null : firstValue / secondValue;
+    return secondValue;
+  }
+
+  function chooseCalculatorOperator(operator: CalculatorOperator) {
+    const currentValue = Number(calculatorDisplay);
+    if (!Number.isFinite(currentValue)) return;
+
+    if (calculatorValue !== null && calculatorOperator && !calculatorWaiting) {
+      const result = calculateResult(calculatorValue, currentValue, calculatorOperator);
+      if (result === null) {
+        resetCalculator();
+        return;
+      }
+      setCalculatorValue(result);
+      setCalculatorDisplay(String(result));
+    } else {
+      setCalculatorValue(currentValue);
+    }
+    setCalculatorOperator(operator);
+    setCalculatorWaiting(true);
+  }
+
+  function completeCalculator() {
+    if (calculatorValue === null || !calculatorOperator) {
+      setFormData((currentFormData) => ({ ...currentFormData, amount: calculatorDisplay }));
+      return;
+    }
+
+    const result = calculateResult(calculatorValue, Number(calculatorDisplay), calculatorOperator);
+    if (result === null || !Number.isFinite(result)) {
+      resetCalculator();
+      return;
+    }
+    const formattedResult = String(Number(result.toFixed(2)));
+    setCalculatorDisplay(formattedResult);
+    setFormData((currentFormData) => ({ ...currentFormData, amount: formattedResult }));
+    setShowCalculator(false);
+    setCalculatorValue(null);
+    setCalculatorOperator(null);
+    setCalculatorWaiting(true);
+  }
 
   useEffect(() => {
     fetchExpenses();
@@ -132,6 +211,8 @@ export function ExpenseTracker() {
     try {
       await addExpense(formData.category, parseFloat(formData.amount), formData.date, formData.notes);
       setFormData({ category: "Food", amount: "", date: getToday(), notes: "" });
+      setShowCalculator(false);
+      resetCalculator();
       setShowForm(false);
       await fetchExpenses();
     } catch (error) {
@@ -274,8 +355,20 @@ export function ExpenseTracker() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2 }}
                 >
-                  <label className="block text-sm font-medium mb-2">Amount (₹)</label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-medium" htmlFor="expense-amount">Amount (₹)</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowCalculator((isVisible) => !isVisible)}
+                      aria-label={showCalculator ? "Hide calculator" : "Show calculator"}
+                      title={showCalculator ? "Hide calculator" : "Show calculator"}
+                      className={`inline-flex items-center justify-center rounded-md p-1.5 transition-colors ${showCalculator ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-muted hover:text-foreground"}`}
+                    >
+                      <Calculator className="w-4 h-4" />
+                    </button>
+                  </div>
                   <input
+                    id="expense-amount"
                     type="number"
                     min="0"
                     step="0.01"
@@ -286,6 +379,54 @@ export function ExpenseTracker() {
                     placeholder="Enter amount"
                     className="w-full px-4 py-2.5 bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring transition-shadow"
                   />
+                  {showCalculator && <div
+                    className="fixed inset-0 z-60 flex items-center justify-center bg-foreground/25 backdrop-blur-sm p-4"
+                    onClick={() => setShowCalculator(false)}
+                  >
+                    <div
+                      className="bg-card rounded-xl border border-border shadow-xl w-full max-w-xs p-4"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <div className="flex items-center justify-between gap-3 mb-3">
+                        <div className="flex items-center gap-2 text-sm font-semibold">
+                          <Calculator className="w-4 h-4 text-primary" />
+                          Calculator
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowCalculator(false)}
+                          aria-label="Close calculator"
+                          className="p-1 text-muted-foreground hover:bg-muted rounded-md transition-colors"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                      <div className="rounded-lg bg-muted/50 border border-border px-3 py-2 mb-3 text-right">
+                        <span className="font-mono text-xl font-semibold text-foreground truncate block" aria-live="polite">
+                          {calculatorDisplay}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-1.5">
+                      {["7", "8", "9"].map((digit) => (
+                        <button key={digit} type="button" onClick={() => enterCalculatorDigit(digit)} className="h-8 rounded-md bg-card border border-border text-sm font-medium hover:bg-muted transition-colors">{digit}</button>
+                      ))}
+                      <button type="button" onClick={() => chooseCalculatorOperator("÷")} className="h-8 rounded-md bg-primary/10 text-primary text-sm font-semibold hover:bg-primary/20 transition-colors">÷</button>
+                      {["4", "5", "6"].map((digit) => (
+                        <button key={digit} type="button" onClick={() => enterCalculatorDigit(digit)} className="h-8 rounded-md bg-card border border-border text-sm font-medium hover:bg-muted transition-colors">{digit}</button>
+                      ))}
+                      <button type="button" onClick={() => chooseCalculatorOperator("×")} className="h-8 rounded-md bg-primary/10 text-primary text-sm font-semibold hover:bg-primary/20 transition-colors">×</button>
+                      {["1", "2", "3"].map((digit) => (
+                        <button key={digit} type="button" onClick={() => enterCalculatorDigit(digit)} className="h-8 rounded-md bg-card border border-border text-sm font-medium hover:bg-muted transition-colors">{digit}</button>
+                      ))}
+                      <button type="button" onClick={() => chooseCalculatorOperator("−")} className="h-8 rounded-md bg-primary/10 text-primary text-sm font-semibold hover:bg-primary/20 transition-colors">−</button>
+                      <button type="button" onClick={() => enterCalculatorDigit("0")} className="h-8 rounded-md bg-card border border-border text-sm font-medium hover:bg-muted transition-colors">0</button>
+                      <button type="button" onClick={enterCalculatorDecimal} className="h-8 rounded-md bg-card border border-border text-sm font-medium hover:bg-muted transition-colors">.</button>
+                      <button type="button" onClick={resetCalculator} className="h-8 rounded-md bg-muted text-xs font-semibold hover:bg-muted/80 transition-colors">Clear</button>
+                      <button type="button" onClick={() => chooseCalculatorOperator("+")} className="h-8 rounded-md bg-primary/10 text-primary text-sm font-semibold hover:bg-primary/20 transition-colors">+</button>
+                      <button type="button" onClick={completeCalculator} className="col-span-4 h-8 rounded-md bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors">Use result</button>
+                      </div>
+                    </div>
+                  </div>}
                 </motion.div>
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
