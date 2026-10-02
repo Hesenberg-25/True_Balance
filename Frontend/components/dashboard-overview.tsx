@@ -21,7 +21,7 @@ import {
   Tooltip,
 } from "recharts";
 import { motion } from "framer-motion";
-import { getAllExpenses, checkBudget, MONTHS, type Expense } from "@/lib/api";
+import { getAllExpenses, checkBudget, MONTHS, type Expense, type Month } from "@/lib/api";
 
 const COLORS = [
   "oklch(0.55 0.18 155)",
@@ -160,6 +160,7 @@ export function DashboardOverview() {
     status: string;
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState<"overall" | Month>("overall");
 
   const currentMonth = MONTHS[new Date().getMonth()];
 
@@ -189,8 +190,11 @@ export function DashboardOverview() {
 
   const { totalExpenses, categoryData, monthlyData } = useMemo(() => {
     const total = expenses.reduce((sum, e) => sum + e.Amount, 0);
+    const selectedExpenses = selectedMonth === "overall"
+      ? expenses
+      : expenses.filter((expense) => expense.Month === selectedMonth);
     
-    const byCategory = expenses.reduce((acc, e) => {
+    const byCategory = selectedExpenses.reduce((acc, e) => {
       acc[e.Category] = (acc[e.Category] || 0) + e.Amount;
       return acc;
     }, {} as Record<string, number>);
@@ -215,7 +219,7 @@ export function DashboardOverview() {
       categoryData: categoryChartData,
       monthlyData: monthlyChartData,
     };
-  }, [expenses]);
+  }, [expenses, selectedMonth]);
 
   const currentMonthExpenses = useMemo(() => {
     return expenses
@@ -300,7 +304,23 @@ export function DashboardOverview() {
           whileHover={{ scale: 1.01 }}
           className="bg-card rounded-xl border border-border p-6 shadow-sm"
         >
-          <h3 className="font-semibold mb-4">Spending by Category</h3>
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <h3 className="font-semibold">Spending by Category</h3>
+            <label className="flex items-center gap-2 text-sm text-muted-foreground" htmlFor="category-period">
+              <span>Period</span>
+              <select
+                id="category-period"
+                value={selectedMonth}
+                onChange={(event) => setSelectedMonth(event.target.value as "overall" | Month)}
+                className="rounded-md border border-border bg-background px-2 py-1.5 text-foreground"
+              >
+                <option value="overall">Overall</option>
+                {MONTHS.map((month) => (
+                  <option key={month} value={month}>{month}</option>
+                ))}
+              </select>
+            </label>
+          </div>
           {categoryData.length > 0 ? (
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
@@ -335,7 +355,7 @@ export function DashboardOverview() {
             </div>
           ) : (
             <div className="h-64 flex items-center justify-center text-muted-foreground">
-              No expense data yet
+              {selectedMonth === "overall" ? "No expense data yet" : `No expenses recorded for ${selectedMonth}`}
             </div>
           )}
         </motion.div>
