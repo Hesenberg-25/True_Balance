@@ -32,6 +32,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [email, setEmail] = useState("");
+  const [logoutError, setLogoutError] = useState("");
   const { theme, setTheme } = useTheme();
 
   useEffect(() => {
@@ -39,8 +40,13 @@ export function Sidebar() {
   }, []);
 
   async function handleLogout() {
-    await logout();
-    window.location.reload();
+    setLogoutError("");
+    try {
+      await logout();
+      window.location.assign("/");
+    } catch (error) {
+      setLogoutError(error instanceof Error ? error.message : "Unable to sign out. Please try again.");
+    }
   }
 
   return (
@@ -209,6 +215,7 @@ export function Sidebar() {
             <LogOut className="w-4 h-4" />
             Sign out
           </button>
+          {logoutError && <p className="text-xs text-destructive text-center mt-2" role="alert">{logoutError}</p>}
         </motion.div>
       </aside>
     </>

@@ -105,6 +105,8 @@ def get_db_connection():
         yield connection
     except DB_ERRORS as e:
         print(f"Database error: {e}")
+        if "unique" in str(e).lower() or "duplicate" in str(e).lower():
+            raise
         raise HTTPException(status_code=500, detail="Database connection failed")
     finally:
         if connection:
@@ -288,9 +290,33 @@ async def login(response: Response, email: str = Form(...), password: str = Form
     return {"email": user["email"]}
 
 
+@app.post("/api/auth/reset-password")
+async def reset_password(email: str = Form(...), password: str = Form(...), confirm_password: str = Form(...)):
+    email = email.strip().lower()
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+        raise HTTPException(status_code=400, detail="Enter a valid email address")
+    if len(password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    if password != confirm_password:
+        raise HTTPException(status_code=400, detail="Passwords do not match")
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE users SET password_hash = %s WHERE email = %s", (_hash_password(password), email))
+        if cursor.rowcount == 0:
+            raise HTTPException(status_code=404, detail="No account found with this email")
+        conn.commit()
+    return {"message": "Password updated successfully"}
+
+
 @app.post("/api/auth/logout")
 async def logout(response: Response):
-    response.delete_cookie(AUTH_COOKIE)
+    response.delete_cookie(
+        AUTH_COOKIE,
+        path="/",
+        secure=not USE_SQLITE,
+        httponly=True,
+        samesite="none" if not USE_SQLITE else "lax",
+    )
     return {"status": "success"}
 
 

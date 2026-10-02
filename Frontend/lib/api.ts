@@ -38,8 +38,19 @@ export async function signup(email: string, password: string, remember: boolean)
   return res.json();
 }
 
+export async function resetPassword(email: string, password: string, confirmPassword: string) {
+  const formData = new FormData();
+  formData.append('email', email);
+  formData.append('password', password);
+  formData.append('confirm_password', confirmPassword);
+  const res = await apiFetch(`${API_BASE_URL}/api/auth/reset-password`, { method: 'POST', body: formData });
+  if (!res.ok) throw new Error((await res.json()).detail || 'Unable to reset password');
+  return res.json();
+}
+
 export async function logout() {
-  await apiFetch(`${API_BASE_URL}/api/auth/logout`, { method: 'POST' });
+  const res = await apiFetch(`${API_BASE_URL}/api/auth/logout`, { method: 'POST' });
+  if (!res.ok) throw new Error('Unable to sign out. Please try again.');
 }
 
 export interface Expense {
