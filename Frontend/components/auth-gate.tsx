@@ -10,6 +10,8 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const [formEmail, setFormEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpRequested, setOtpRequested] = useState(false);
   const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -28,11 +30,19 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
     setError("");
     try {
       if (mode === "forgot") {
-        await resetPassword(formEmail, password, confirmPassword);
-        setMode("login");
-        setPassword("");
-        setConfirmPassword("");
-        setError("Password updated successfully. Please sign in with your new password.");
+        if (!otpRequested) {
+          await resetPassword(formEmail);
+          setOtpRequested(true);
+          setError("If an account exists for that email, a reset code has been sent.");
+        } else {
+          await resetPassword(formEmail, password, confirmPassword, otp);
+          setMode("login");
+          setOtpRequested(false);
+          setOtp("");
+          setPassword("");
+          setConfirmPassword("");
+          setError("Password updated successfully. Please sign in with your new password.");
+        }
       } else {
         const user = mode === "login"
           ? await login(formEmail, password, remember)
@@ -77,14 +87,20 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
               <input required type="email" value={formEmail} onChange={(event) => setFormEmail(event.target.value)} className="w-full pl-10 pr-4 py-3 bg-input border border-border rounded-lg" placeholder="you@gmail.com" />
             </div>
           </label>
-          <label className="block text-sm font-medium">
+          {(mode !== "forgot" || otpRequested) && <label className="block text-sm font-medium">
             Password
             <div className="relative mt-2">
               <LockKeyhole className="absolute left-3 top-3 w-5 h-5 text-muted-foreground" />
               <input required minLength={8} type="password" value={password} onChange={(event) => setPassword(event.target.value)} className="w-full pl-10 pr-4 py-3 bg-input border border-border rounded-lg" placeholder={mode === "forgot" ? "New password" : "At least 8 characters"} />
             </div>
-          </label>
-          {mode === "forgot" && (
+          </label>}
+          {mode === "forgot" && otpRequested && (
+            <label className="block text-sm font-medium">
+              6-digit reset code
+              <input required pattern="[0-9]{6}" inputMode="numeric" maxLength={6} value={otp} onChange={(event) => setOtp(event.target.value)} className="w-full mt-2 px-4 py-3 bg-input border border-border rounded-lg" placeholder="000000" />
+            </label>
+          )}
+          {mode === "forgot" && otpRequested && (
             <label className="block text-sm font-medium">
               Confirm new password
               <div className="relative mt-2">
@@ -99,10 +115,10 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           </label>}
           {error && <p className="text-sm text-destructive" role="alert">{error}</p>}
           <button disabled={submitting} className="w-full py-3 rounded-lg bg-primary text-primary-foreground font-medium disabled:opacity-60">
-            {submitting ? "Please wait..." : mode === "login" ? "Sign in" : mode === "signup" ? "Create account" : "Reset password"}
+            {submitting ? "Please wait..." : mode === "login" ? "Sign in" : mode === "signup" ? "Create account" : otpRequested ? "Reset password" : "Send reset code"}
           </button>
         </form>
-        {mode === "login" && <button type="button" onClick={() => { setMode("forgot"); setError(""); }} className="w-full mt-4 text-sm text-accent hover:underline">Forgot password?</button>}
+        {mode === "login" && <button type="button" onClick={() => { setMode("forgot"); setOtpRequested(false); setError(""); }} className="w-full mt-4 text-sm text-accent hover:underline">Forgot password?</button>}
         <button type="button" onClick={() => { setMode(mode === "login" ? "signup" : "login"); setError(""); }} className="w-full mt-5 text-sm text-accent hover:underline">
           {mode === "login" ? "New here? Create an account" : "Back to sign in"}
         </button>

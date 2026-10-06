@@ -1,6 +1,6 @@
-from fastapi import Cookie, Depends, FastAPI, Form, HTTPException, Response
+from fastapi import BackgroundTasks, Cookie, Depends, FastAPI, Form, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 import psycopg2
 from psycopg2 import Error
 from psycopg2.extras import RealDictCursor
@@ -16,6 +16,8 @@ import hmac
 import json
 import re
 import secrets
+import urllib.error
+import urllib.request
 from pathlib import Path
 from dotenv import load_dotenv
 app = FastAPI(title="TrueBalance API Backend")
@@ -150,9 +152,25 @@ def init_database():
                     id {"INTEGER PRIMARY KEY AUTOINCREMENT" if USE_SQLITE else "SERIAL PRIMARY KEY"},
                     email VARCHAR(255) NOT NULL UNIQUE,
                     password_hash VARCHAR(255) NOT NULL,
+                    reset_otp_hash VARCHAR(255),
+                    reset_otp_expires_at TIMESTAMP,
+                    reset_otp_attempts INTEGER NOT NULL DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+
+            for column_definition in (
+                "reset_otp_hash VARCHAR(255)",
+                "reset_otp_expires_at TIMESTAMP",
+                "reset_otp_attempts INTEGER NOT NULL DEFAULT 0",
+            ):
+                try:
+                    cursor.execute("SAVEPOINT add_reset_otp_column")
+                    cursor.execute(f"ALTER TABLE users ADD COLUMN {column_definition}")
+                    cursor.execute("RELEASE SAVEPOINT add_reset_otp_column")
+                except DB_ERRORS:
+                    cursor.execute("ROLLBACK TO SAVEPOINT add_reset_otp_column")
+                    cursor.execute("RELEASE SAVEPOINT add_reset_otp_column")
 
             for table in ("expenses", "budgets"):
                 try:
@@ -228,6 +246,34 @@ def _verify_password(password: str, encoded: str) -> bool:
         return False
 
 
+def _send_reset_email(email: str, otp: str) -> None:
+    api_key = os.environ.get("RESEND_API_KEY")
+    sender = os.environ.get("EMAIL_FROM")
+    if not api_key or not sender:
+        print("Password reset email not sent: RESEND_API_KEY and EMAIL_FROM are required")
+        return
+    payload = json.dumps({
+        "from": sender,
+        "to": [email],
+        "subject": "Your TrueBalance password reset code",
+        "text": f"Your TrueBalance password reset code is {otp}. It expires in 5 minutes.",
+    }).encode()
+    request = urllib.request.Request(
+        "https://api.resend.com/emails",
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=10):
+            pass
+    except urllib.error.URLError as error:
+        print(f"Password reset email failed: {error}")
+
+
 def get_current_user(truebalance_session: str | None = Cookie(default=None)) -> dict:
     user_id = _decode_session(truebalance_session)
     if not user_id:
@@ -291,19 +337,71 @@ async def login(response: Response, email: str = Form(...), password: str = Form
 
 
 @app.post("/api/auth/reset-password")
-async def reset_password(email: str = Form(...), password: str = Form(...), confirm_password: str = Form(...)):
+async def reset_password(
+    background_tasks: BackgroundTasks,
+    email: str = Form(...),
+    password: str | None = Form(None),
+    confirm_password: str | None = Form(None),
+    otp: str | None = Form(None),
+):
     email = email.strip().lower()
     if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
         raise HTTPException(status_code=400, detail="Enter a valid email address")
-    if len(password) < 8:
+
+    if not otp:
+        raw_otp = f"{secrets.randbelow(1_000_000):06d}"
+        otp_expires_at = datetime.now(timezone.utc) + timedelta(minutes=5)
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE users SET reset_otp_hash = %s, reset_otp_expires_at = %s, reset_otp_attempts = 0 WHERE email = %s",
+                (_hash_password(raw_otp), otp_expires_at.isoformat(), email),
+            )
+            conn.commit()
+            if cursor.rowcount:
+                background_tasks.add_task(_send_reset_email, email, raw_otp)
+        return {"message": "If an account exists for that email, a reset code has been sent."}
+
+    if not re.fullmatch(r"\d{6}", otp):
+        raise HTTPException(status_code=400, detail="Invalid or expired reset code")
+    if password is None or len(password) < 8:
         raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
     if password != confirm_password:
         raise HTTPException(status_code=400, detail="Passwords do not match")
+
     with get_db_connection() as conn:
-        cursor = conn.cursor()
-        cursor.execute("UPDATE users SET password_hash = %s WHERE email = %s", (_hash_password(password), email))
-        if cursor.rowcount == 0:
-            raise HTTPException(status_code=404, detail="No account found with this email")
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor.execute(
+            "SELECT id, reset_otp_hash, reset_otp_expires_at, reset_otp_attempts FROM users WHERE email = %s",
+            (email,),
+        )
+        user = cursor.fetchone()
+        expires_at: datetime | None = None
+        if user and user["reset_otp_expires_at"]:
+            expires_at = user["reset_otp_expires_at"]
+            if isinstance(expires_at, str):
+                expires_at = datetime.fromisoformat(expires_at)
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if (
+            not user
+            or not user["reset_otp_hash"]
+            or user["reset_otp_attempts"] >= 5
+            or not expires_at
+            or expires_at <= datetime.now(timezone.utc)
+        ):
+            raise HTTPException(status_code=400, detail="Invalid or expired reset code")
+        if not _verify_password(otp, user["reset_otp_hash"]):
+            cursor.execute(
+                "UPDATE users SET reset_otp_attempts = reset_otp_attempts + 1, reset_otp_hash = CASE WHEN reset_otp_attempts + 1 >= 5 THEN NULL ELSE reset_otp_hash END, reset_otp_expires_at = CASE WHEN reset_otp_attempts + 1 >= 5 THEN NULL ELSE reset_otp_expires_at END WHERE id = %s",
+                (user["id"],),
+            )
+            conn.commit()
+            raise HTTPException(status_code=400, detail="Invalid or expired reset code")
+        cursor.execute(
+            "UPDATE users SET password_hash = %s, reset_otp_hash = NULL, reset_otp_expires_at = NULL, reset_otp_attempts = 0 WHERE id = %s",
+            (_hash_password(password), user["id"]),
+        )
         conn.commit()
     return {"message": "Password updated successfully"}
 

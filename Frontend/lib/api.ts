@@ -38,11 +38,12 @@ export async function signup(email: string, password: string, remember: boolean)
   return res.json();
 }
 
-export async function resetPassword(email: string, password: string, confirmPassword: string) {
+export async function resetPassword(email: string, password = '', confirmPassword = '', otp = '') {
   const formData = new FormData();
   formData.append('email', email);
   formData.append('password', password);
   formData.append('confirm_password', confirmPassword);
+  if (otp) formData.append('otp', otp);
   const res = await apiFetch(`${API_BASE_URL}/api/auth/reset-password`, { method: 'POST', body: formData });
   if (!res.ok) throw new Error((await res.json()).detail || 'Unable to reset password');
   return res.json();
