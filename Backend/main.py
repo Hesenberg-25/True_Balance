@@ -268,10 +268,12 @@ def _send_reset_email(email: str, otp: str) -> None:
         method="POST",
     )
     try:
-        with urllib.request.urlopen(request, timeout=10):
-            pass
+        with urllib.request.urlopen(request, timeout=10) as response:
+            print(f"Password reset email accepted by Resend: HTTP {response.status}")
+    except urllib.error.HTTPError as error:
+        print(f"Password reset email rejected by Resend: HTTP {error.code} {error.read().decode(errors='replace')}")
     except urllib.error.URLError as error:
-        print(f"Password reset email failed: {error}")
+        print(f"Password reset email failed before reaching Resend: {error}")
 
 
 def get_current_user(truebalance_session: str | None = Cookie(default=None)) -> dict:
@@ -381,7 +383,7 @@ async def reset_password(
             expires_at = user["reset_otp_expires_at"]
             if isinstance(expires_at, str):
                 expires_at = datetime.fromisoformat(expires_at)
-            if expires_at.tzinfo is None:
+            if expires_at is not None and expires_at.tzinfo is None:
                 expires_at = expires_at.replace(tzinfo=timezone.utc)
         if (
             not user
