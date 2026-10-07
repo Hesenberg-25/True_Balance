@@ -247,33 +247,38 @@ def _verify_password(password: str, encoded: str) -> bool:
 
 
 def _send_reset_email(email: str, otp: str) -> None:
-    api_key = os.environ.get("RESEND_API_KEY")
+    api_key = os.environ.get("BREVO_API_KEY")
     sender = os.environ.get("EMAIL_FROM")
     if not api_key or not sender:
-        print("Password reset email not sent: RESEND_API_KEY and EMAIL_FROM are required")
+        print("Password reset email not sent: BREVO_API_KEY and EMAIL_FROM are required")
         return
+    sender_name = "TrueBalance"
+    sender_match = re.fullmatch(r"(.+?)\s*<([^<>]+)>", sender)
+    if sender_match:
+        sender_name = sender_match.group(1).strip()
+        sender = sender_match.group(2).strip()
     payload = json.dumps({
-        "from": sender,
-        "to": [email],
+        "sender": {"name": sender_name, "email": sender},
+        "to": [{"email": email}],
         "subject": "Your TrueBalance password reset code",
-        "text": f"Your TrueBalance password reset code is {otp}. It expires in 5 minutes.",
+        "textContent": f"Your TrueBalance password reset code is {otp}. It expires in 5 minutes.",
     }).encode()
     request = urllib.request.Request(
-        "https://api.resend.com/emails",
+        "https://api.brevo.com/v3/smtp/email",
         data=payload,
         headers={
-            "Authorization": f"Bearer {api_key}",
+            "api-key": api_key,
             "Content-Type": "application/json",
         },
         method="POST",
     )
     try:
         with urllib.request.urlopen(request, timeout=10) as response:
-            print(f"Password reset email accepted by Resend: HTTP {response.status}")
+            print(f"Password reset email accepted by Brevo: HTTP {response.status}")
     except urllib.error.HTTPError as error:
-        print(f"Password reset email rejected by Resend: HTTP {error.code} {error.read().decode(errors='replace')}")
+        print(f"Password reset email rejected by Brevo: HTTP {error.code} {error.read().decode(errors='replace')}")
     except urllib.error.URLError as error:
-        print(f"Password reset email failed before reaching Resend: {error}")
+        print(f"Password reset email failed before reaching Brevo: {error}")
 
 
 def get_current_user(truebalance_session: str | None = Cookie(default=None)) -> dict:
