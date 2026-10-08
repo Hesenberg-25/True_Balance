@@ -566,17 +566,30 @@ async def delete_expense_endpoint(expense_id: int, user: dict = Depends(get_curr
         raise HTTPException(status_code=500, detail=f"Error deleting expense: {str(e)}")
 
 @app.put("/api/expenses/{expense_id}")
-async def update_expense_endpoint(expense_id: int, category_name: str = Form(...), amount: float = Form(...), user: dict = Depends(get_current_user)):
+async def update_expense_endpoint(expense_id: int, category_name: str = Form(...), amount: float = Form(...), expense_date: str = Form(...), notes: str = Form(""), user: dict = Depends(get_current_user)):
     """Update an expense"""
     if category_name not in CATEGORIES:
         raise HTTPException(status_code=400, detail=f"Invalid category. Must be one of {CATEGORIES}")
+    if amount <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be greater than zero")
+    try:
+        expense_day = date.fromisoformat(expense_date)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Enter a valid expense date")
+    if expense_day > date.today():
+        raise HTTPException(status_code=400, detail="Expense date cannot be in the future")
+    normalized_notes = notes.strip() or None
+    if normalized_notes and len(normalized_notes) > 500:
+        raise HTTPException(status_code=400, detail="Notes must be 500 characters or fewer")
+
+    month_string = MONTHS[expense_day.month - 1].capitalize()
     
     try:
         with get_db_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "UPDATE expenses SET category = %s, amount = %s WHERE id = %s AND user_id = %s",
-                (category_name, amount, expense_id, user["id"])
+                "UPDATE expenses SET date = %s, month = %s, category = %s, amount = %s, notes = %s WHERE id = %s AND user_id = %s",
+                (expense_day, month_string, category_name, amount, normalized_notes, expense_id, user["id"])
             )
             conn.commit()
             
@@ -588,8 +601,11 @@ async def update_expense_endpoint(expense_id: int, category_name: str = Form(...
                 "message": f"Expense updated successfully",
                 "data": {
                     "id": expense_id,
+                    "date": str(expense_day),
+                    "month": month_string,
                     "category": category_name,
-                    "amount": amount
+                    "amount": amount,
+                    "notes": normalized_notes or ""
                 }
             }
     except DB_ERRORS as e:

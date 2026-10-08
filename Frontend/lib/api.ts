@@ -127,6 +127,21 @@ export async function addExpense(category: Category, amount: number, expenseDate
   return res.json();
 }
 
+export async function updateExpense(expenseId: string, category: Category, amount: number, expenseDate: string, notes: string) {
+  const formData = new FormData();
+  formData.append('category_name', category);
+  formData.append('amount', amount.toString());
+  formData.append('expense_date', expenseDate);
+  formData.append('notes', notes);
+
+  const res = await apiFetch(`${API_BASE_URL}/api/expenses/${expenseId}`, {
+    method: 'PUT',
+    body: formData,
+  });
+  if (!res.ok) throw new Error('Failed to update expense');
+  return res.json();
+}
+
 export async function getAllExpenses(): Promise<Expense[]> {
   const res = await apiFetch(`${API_BASE_URL}/api/expenses`);
   if (!res.ok) throw new Error('Failed to fetch expenses');

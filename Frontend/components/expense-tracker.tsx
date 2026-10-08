@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Filter, Receipt, X, Trash2, AlertTriangle, CalendarDays, Calculator } from "lucide-react";
+import { Plus, Filter, Receipt, X, Trash2, AlertTriangle, CalendarDays, Calculator, Pencil } from "lucide-react";
 import {
   PieChart,
   Pie,
@@ -14,6 +14,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   addExpense,
+  updateExpense,
   deleteExpense,
   getAllExpenses,
   CATEGORIES,
@@ -100,6 +101,7 @@ export function ExpenseTracker() {
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<Expense | null>(null);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>("All");
@@ -209,17 +211,33 @@ export function ExpenseTracker() {
 
     setSubmitting(true);
     try {
-      await addExpense(formData.category, parseFloat(formData.amount), formData.date, formData.notes);
+      if (editingExpense) {
+        await updateExpense(editingExpense.Id, formData.category, parseFloat(formData.amount), formData.date, formData.notes);
+      } else {
+        await addExpense(formData.category, parseFloat(formData.amount), formData.date, formData.notes);
+      }
       setFormData({ category: "Food", amount: "", date: getToday(), notes: "" });
+      setEditingExpense(null);
       setShowCalculator(false);
       resetCalculator();
       setShowForm(false);
       await fetchExpenses();
     } catch (error) {
-      console.error("Failed to add expense:", error);
+      console.error(editingExpense ? "Failed to update expense:" : "Failed to add expense:", error);
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function startEditing(expense: Expense) {
+    setEditingExpense(expense);
+    setFormData({
+      category: expense.Category as Category,
+      amount: String(expense.Amount),
+      date: expense.Date,
+      notes: expense.Notes,
+    });
+    setShowForm(true);
   }
 
   async function confirmDelete() {
@@ -292,7 +310,11 @@ export function ExpenseTracker() {
         <motion.button
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
-          onClick={() => setShowForm(true)}
+          onClick={() => {
+            setEditingExpense(null);
+            setFormData({ category: "Food", amount: "", date: getToday(), notes: "" });
+            setShowForm(true);
+          }}
           className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg font-medium hover:bg-primary/90 transition-colors"
         >
           <Plus className="w-5 h-5" />
@@ -319,11 +341,14 @@ export function ExpenseTracker() {
               className="bg-card rounded-xl border border-border shadow-lg w-full max-w-md p-6"
             >
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold">Add New Expense</h2>
+                <h2 className="text-lg font-semibold">{editingExpense ? "Edit Expense" : "Add New Expense"}</h2>
                 <motion.button
                   whileHover={{ scale: 1.1, rotate: 90 }}
                   whileTap={{ scale: 0.9 }}
-                  onClick={() => setShowForm(false)}
+                  onClick={() => {
+                    setShowForm(false);
+                    setEditingExpense(null);
+                  }}
                   className="p-1 hover:bg-muted rounded-lg transition-colors"
                 >
                   <X className="w-5 h-5" />
@@ -502,7 +527,10 @@ export function ExpenseTracker() {
                     type="button"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => setShowForm(false)}
+                    onClick={() => {
+                      setShowForm(false);
+                      setEditingExpense(null);
+                    }}
                     className="flex-1 px-4 py-2.5 border border-border rounded-lg font-medium hover:bg-muted transition-colors"
                   >
                     Cancel
@@ -519,10 +547,10 @@ export function ExpenseTracker() {
                         animate={{ opacity: [1, 0.5, 1] }}
                         transition={{ repeat: Infinity, duration: 1 }}
                       >
-                        Adding...
+                        {editingExpense ? "Saving..." : "Adding..."}
                       </motion.span>
                     ) : (
-                      "Add Expense"
+                      editingExpense ? "Save Changes" : "Add Expense"
                     )}
                   </motion.button>
                 </motion.div>
@@ -782,6 +810,17 @@ export function ExpenseTracker() {
                       </div>
                       <div className="flex items-center gap-3">
                         <p className="font-semibold">₹{expense.Amount.toLocaleString()}</p>
+                        <motion.button
+                          type="button"
+                          whileHover={{ scale: 1.1 }}
+                          whileTap={{ scale: 0.9 }}
+                          onClick={() => startEditing(expense)}
+                          aria-label={`Edit ${expense.Category} expense`}
+                          title="Edit expense"
+                          className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                        >
+                          <Pencil className="w-4 h-4" />
+                        </motion.button>
                         <motion.button
                           type="button"
                           whileHover={{ scale: 1.1 }}
