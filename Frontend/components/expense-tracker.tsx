@@ -18,8 +18,10 @@ import {
   deleteExpense,
   getAllExpenses,
   CATEGORIES,
+  MONTHS,
   type Expense,
   type Category,
+  type Month,
 } from "@/lib/api";
 
 const COLORS = [
@@ -105,6 +107,7 @@ export function ExpenseTracker() {
   const [showForm, setShowForm] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [filterCategory, setFilterCategory] = useState<string>("All");
+  const [filterMonth, setFilterMonth] = useState<"All" | Month>("All");
   const [showCalculator, setShowCalculator] = useState(false);
   const [calculatorDisplay, setCalculatorDisplay] = useState("0");
   const [calculatorValue, setCalculatorValue] = useState<number | null>(null);
@@ -259,9 +262,12 @@ export function ExpenseTracker() {
   }
 
   const filteredExpenses = useMemo(() => {
-    if (filterCategory === "All") return expenses;
-    return expenses.filter((e) => e.Category === filterCategory);
-  }, [expenses, filterCategory]);
+    return expenses.filter((expense) => {
+      const matchesCategory = filterCategory === "All" || expense.Category === filterCategory;
+      const matchesMonth = filterMonth === "All" || expense.Month === filterMonth;
+      return matchesCategory && matchesMonth;
+    });
+  }, [expenses, filterCategory, filterMonth]);
 
   const categoryData = useMemo(() => {
     const byCategory = filteredExpenses.reduce((acc, e) => {
@@ -641,9 +647,13 @@ export function ExpenseTracker() {
         >
           <div className="flex items-center gap-2 text-muted-foreground mb-2">
             <Filter className="w-4 h-4" />
-            <span className="text-sm font-medium">Filter by Category</span>
+            <span className="text-sm font-medium">View Expenses</span>
           </div>
+          <label className="block text-xs text-muted-foreground mb-1" htmlFor="expense-category-filter">
+            Category
+          </label>
           <select
+            id="expense-category-filter"
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
             className="w-full px-3 py-2 bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-sm transition-shadow"
@@ -652,6 +662,22 @@ export function ExpenseTracker() {
             {CATEGORIES.map((cat) => (
               <option key={cat} value={cat}>
                 {cat}
+              </option>
+            ))}
+          </select>
+          <label className="block text-xs text-muted-foreground mt-3 mb-1" htmlFor="expense-month-filter">
+            Month
+          </label>
+          <select
+            id="expense-month-filter"
+            value={filterMonth}
+            onChange={(e) => setFilterMonth(e.target.value as "All" | Month)}
+            className="w-full px-3 py-2 bg-input border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring text-sm transition-shadow"
+          >
+            <option value="All">All Months</option>
+            {MONTHS.map((month) => (
+              <option key={month} value={month}>
+                {month}
               </option>
             ))}
           </select>
